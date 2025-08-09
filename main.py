@@ -129,10 +129,13 @@ class MainWindow(QtWidgets.QWidget):
         search_layout.addWidget(self.search_input)
         search_layout.addWidget(self.search_btn)
 
-        # Layout izquierdo: búsqueda + tabla
+        # Layout izquierdo: búsqueda + tabla + botón abajo
         left_layout = QtWidgets.QVBoxLayout()
         left_layout.addLayout(search_layout)
         left_layout.addWidget(self.table)
+        
+        self.create_btn = QtWidgets.QPushButton("Create Invoice")
+        left_layout.addWidget(self.create_btn)
 
         # Layout derecho: estado, lista pdf y botones
         right_layout = QtWidgets.QVBoxLayout()
@@ -157,15 +160,6 @@ class MainWindow(QtWidgets.QWidget):
         top_layout.addLayout(right_layout, stretch=1)  # Derecha ocupa mitad
 
         main_layout.addLayout(top_layout)
-
-        # Botón crear factura centrado abajo
-        self.create_btn = QtWidgets.QPushButton("Create Invoice")
-        self.create_btn.setFixedWidth(200)
-        button_layout = QtWidgets.QHBoxLayout()
-        button_layout.addStretch()
-        button_layout.addWidget(self.create_btn)
-        button_layout.addStretch()
-        main_layout.addLayout(button_layout)
 
         # Conexiones
         self.create_btn.clicked.connect(self.open_create_dialog)
