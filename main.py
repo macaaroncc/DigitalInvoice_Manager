@@ -37,58 +37,41 @@ class DropArea(QtWidgets.QWidget):
         if files:
             self.filesDropped.emit(files)
 
-class InvoiceApp(QtWidgets.QWidget):
+class InvoiceCreateDialog(QtWidgets.QDialog):
+    invoiceCreated = QtCore.pyqtSignal()
+
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("DigitalInvoice_Manager")
-        self.setGeometry(200, 200, 800, 600)
-        self.layout = QtWidgets.QVBoxLayout(self)
+        self.setWindowTitle("Create Invoice")
+        self.setMinimumSize(400, 300)
 
-        # Table of invoices
-        self.table = QtWidgets.QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Number", "Client", "Date", "Folder"])
-        self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table.cellDoubleClicked.connect(self.open_invoice_folder)
-        self.layout.addWidget(self.table)
+        layout = QtWidgets.QVBoxLayout(self)
 
-        # Form inputs
         form_layout = QtWidgets.QFormLayout()
         self.number_input = QtWidgets.QLineEdit()
         self.client_input = QtWidgets.QLineEdit()
         self.date_input = QtWidgets.QDateEdit(QtCore.QDate.currentDate())
         self.date_input.setCalendarPopup(True)
-
         form_layout.addRow("Invoice Number:", self.number_input)
         form_layout.addRow("Client:", self.client_input)
         form_layout.addRow("Date:", self.date_input)
+        layout.addLayout(form_layout)
 
-        self.layout.addLayout(form_layout)
-
-        # Drop area for PDFs
         self.drop_area = DropArea()
-        self.drop_area.filesDropped.connect(self.handle_files_dropped)
-        self.layout.addWidget(self.drop_area)
+        layout.addWidget(self.drop_area)
 
-        # Save button
-        self.save_button = QtWidgets.QPushButton("Create Invoice Record")
-        self.save_button.clicked.connect(self.create_invoice)
-        self.layout.addWidget(self.save_button)
+        self.save_button = QtWidgets.QPushButton("Save Invoice")
+        layout.addWidget(self.save_button)
 
-        self.current_invoice_folder = None
+        self.files_to_copy = []
+        self.drop_area.filesDropped.connect(self.files_dropped)
+        self.save_button.clicked.connect(self.save_invoice)
 
-        self.load_invoices()
+    def files_dropped(self, files):
+        self.files_to_copy.extend(files)
+        self.drop_area.label.setText(f"{len(self.files_to_copy)} PDF(s) ready to add")
 
-    def load_invoices(self):
-        self.table.setRowCount(0)
-        for row_data in get_invoices():
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-            for col, val in enumerate(row_data[1:]):
-                self.table.setItem(row, col, QtWidgets.QTableWidgetItem(str(val)))
-
-    def create_invoice(self):
+    def save_invoice(self):
         number = self.number_input.text().strip()
         client = self.client_input.text().strip()
         date = self.date_input.date().toString("yyyy-MM-dd")
@@ -102,53 +85,122 @@ class InvoiceApp(QtWidgets.QWidget):
             os.makedirs(folder)
 
         add_invoice(number, client, date, "", folder)
-        self.current_invoice_folder = folder
-        self.load_invoices()
 
-        QtWidgets.QMessageBox.information(self, "Invoice Created", f"Invoice record created.\nNow drag and drop PDFs into the area below to add them to the invoice folder:\n{folder}")
-
-    def handle_files_dropped(self, files):
-        if not self.current_invoice_folder:
-            QtWidgets.QMessageBox.warning(self, "No Invoice Selected", "Please create or select an invoice first")
-            return
-
-        for file_path in files:
+        for file_path in self.files_to_copy:
             filename = os.path.basename(file_path)
-            dest_path = os.path.join(self.current_invoice_folder, filename)
-
-            # Avoid overwrite: add suffix if exists
+            dest_path = os.path.join(folder, filename)
             base, ext = os.path.splitext(filename)
             counter = 1
             while os.path.exists(dest_path):
-                dest_path = os.path.join(self.current_invoice_folder, f"{base}_{counter}{ext}")
+                dest_path = os.path.join(folder, f"{base}_{counter}{ext}")
                 counter += 1
-
             try:
                 shutil.copy(file_path, dest_path)
             except Exception as e:
                 QtWidgets.QMessageBox.warning(self, "Error Copying File", f"Could not copy {filename}:\n{str(e)}")
-                continue
 
-        QtWidgets.QMessageBox.information(self, "Files Added", f"{len(files)} PDF(s) added to invoice folder:\n{self.current_invoice_folder}")
+        QtWidgets.QMessageBox.information(self, "Invoice Saved", f"Invoice '{number}' saved with {len(self.files_to_copy)} PDFs.")
+        self.invoiceCreated.emit()
+        self.close()
 
-    def open_invoice_folder(self, row, _col):
+class MainWindow(QtWidgets.QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("DigitalInvoice_Manager")
+        self.setGeometry(200, 200, 900, 600)
+
+        main_layout = QtWidgets.QVBoxLayout(self)
+
+        # Horizontal layout for table and pdf list
+        top_layout = QtWidgets.QHBoxLayout()
+
+        # Table for invoices (left side)
+        self.table = QtWidgets.QTableWidget()
+        self.table.setColumnCount(4)
+        self.table.setHorizontalHeaderLabels(["Number", "Client", "Date", "Folder"])
+        self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.setMinimumWidth(450)
+        top_layout.addWidget(self.table)
+
+        # List widget for PDFs (right side)
+        self.pdf_list = QtWidgets.QListWidget()
+        self.pdf_list.setMinimumWidth(400)
+        self.pdf_list.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+        top_layout.addWidget(self.pdf_list)
+
+        main_layout.addLayout(top_layout)
+
+        # Button below, centered
+        self.create_btn = QtWidgets.QPushButton("Create Invoice")
+        self.create_btn.setFixedWidth(200)
+        button_layout = QtWidgets.QHBoxLayout()
+        button_layout.addStretch()
+        button_layout.addWidget(self.create_btn)
+        button_layout.addStretch()
+
+        main_layout.addLayout(button_layout)
+
+        # Connections
+        self.create_btn.clicked.connect(self.open_create_dialog)
+        self.table.itemSelectionChanged.connect(self.show_invoice_pdfs)
+        self.pdf_list.itemDoubleClicked.connect(self.open_pdf_file)
+
+        self.load_invoices()
+
+    def load_invoices(self):
+        self.table.setRowCount(0)
+        for row_data in get_invoices():
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+            for col, val in enumerate(row_data[1:]):
+                self.table.setItem(row, col, QtWidgets.QTableWidgetItem(str(val)))
+
+    def open_create_dialog(self):
+        dialog = InvoiceCreateDialog()
+        dialog.invoiceCreated.connect(self.load_invoices)
+        dialog.exec()
+
+    def show_invoice_pdfs(self):
+        self.pdf_list.clear()
+        selected_rows = self.table.selectionModel().selectedRows()
+        if not selected_rows:
+            return
+
+        row = selected_rows[0].row()
         folder_item = self.table.item(row, 3)
-        if folder_item:
-            folder_path = folder_item.text()
-            if os.path.exists(folder_path):
-                # Open folder in file explorer
-                if sys.platform == 'win32':
-                    os.startfile(folder_path)
-                elif sys.platform == 'darwin':
-                    os.system(f'open "{folder_path}"')
-                else:
-                    os.system(f'xdg-open "{folder_path}"')
+        if not folder_item:
+            return
+        folder_path = folder_item.text()
+        if not os.path.exists(folder_path):
+            return
+
+        pdf_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.pdf')]
+        self.pdf_list.addItems(pdf_files)
+
+    def open_pdf_file(self, item):
+        selected_rows = self.table.selectionModel().selectedRows()
+        if not selected_rows:
+            return
+
+        row = selected_rows[0].row()
+        folder_item = self.table.item(row, 3)
+        if not folder_item:
+            return
+        folder_path = folder_item.text()
+        pdf_path = os.path.join(folder_path, item.text())
+
+        if os.path.exists(pdf_path):
+            if sys.platform == 'win32':
+                os.startfile(pdf_path)
+            elif sys.platform == 'darwin':
+                os.system(f'open "{pdf_path}"')
             else:
-                QtWidgets.QMessageBox.warning(self, "Folder not found", "The invoice folder does not exist.")
+                os.system(f'xdg-open "{pdf_path}"')
 
 if __name__ == "__main__":
     init_db()
     app = QtWidgets.QApplication(sys.argv)
-    window = InvoiceApp()
+    window = MainWindow()
     window.show()
     sys.exit(app.exec())
