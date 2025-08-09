@@ -144,6 +144,10 @@ class MainWindow(QtWidgets.QWidget):
         self.setWindowTitle("DigitalInvoice Manager")
         self.setGeometry(200, 200, 1000, 700)
         
+        # Cargar íconos
+        self.green_check_icon = QtGui.QIcon("icons/green_check.png")
+        self.red_cross_icon = QtGui.QIcon("icons/red_cross.png")
+        
         # Estilo principal
         self.setStyleSheet("""
             QWidget {
@@ -207,15 +211,12 @@ class MainWindow(QtWidgets.QWidget):
         header = QtWidgets.QHBoxLayout()
         header.addStretch()
         
-        logo = QtWidgets.QLabel("FUTURA PETROLIUM INVOICE MANAGER")
-        logo.setStyleSheet("""
-            QLabel {
-                color: black;
-                font-size: 24px;
-                font-weight: bold;
-                padding: 10px;
-            }
-        """)
+        logo = QtWidgets.QLabel()
+        pixmap = QtGui.QPixmap("icons/logo.png")
+        logo.setPixmap(pixmap)
+        logo.setScaledContents(True)  # Para que el logo se escale al tamaño del label
+        logo.setFixedHeight(60)       # Ajusta la altura que quieras para el logo
+
         header.addWidget(logo)
         header.addStretch()
         main_layout.addLayout(header)
@@ -353,9 +354,12 @@ class MainWindow(QtWidgets.QWidget):
             self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(str(row_data[2])))
             self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(str(row_data[3])))
 
-            status_item = QtWidgets.QTableWidgetItem("✔" if row_data[4] == "verde" else "❌")
+            status_item = QtWidgets.QTableWidgetItem()
+            if row_data[4] == "verde":
+                status_item.setIcon(self.green_check_icon)
+            else:
+                status_item.setIcon(self.red_cross_icon)
             status_item.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-            status_item.setForeground(QtGui.QColor("#00c853") if row_data[4] == "verde" else QtGui.QColor("#d50000"))
             self.table.setItem(row, 3, status_item)
 
         self.status_combo.setEnabled(False)
@@ -405,7 +409,7 @@ class MainWindow(QtWidgets.QWidget):
         self.delete_pdf_btn.setEnabled(False)
 
         status_item = self.table.item(row, 3)
-        if status_item and status_item.text() == "✔":
+        if status_item and status_item.icon().cacheKey() == self.green_check_icon.cacheKey():
             self.status_combo.setCurrentText("completo")
         else:
             self.status_combo.setCurrentText("incompleto")
@@ -434,9 +438,9 @@ class MainWindow(QtWidgets.QWidget):
     def toggle_invoice_status(self, item):
         row = item.row()
         number = self.table.item(row, 0).text()
-        current_status_symbol = self.table.item(row, 3).text()
+        current_item = self.table.item(row, 3)
 
-        new_status = "verde" if current_status_symbol == "❌" else "rojo"
+        new_status = "verde" if current_item.icon().cacheKey() == self.red_cross_icon.cacheKey() else "rojo"
         update_invoice_status(number, new_status)
         self.load_invoices()
 
