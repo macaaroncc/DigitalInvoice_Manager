@@ -2,6 +2,10 @@ import sys
 import os
 import shutil
 from PyQt6 import QtWidgets, QtCore, QtGui
+
+# Import necesario para visor PDF
+from PyQt6 import QtWebEngineWidgets
+
 from db import init_db, add_invoice, get_invoices, update_invoice_status
 
 class DropArea(QtWidgets.QWidget):
@@ -301,6 +305,11 @@ class MainWindow(QtWidgets.QWidget):
         self.pdf_list.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
         right_panel.addWidget(self.pdf_list)
 
+        # Visor PDF agregado aquí:
+        self.pdf_viewer = QtWebEngineWidgets.QWebEngineView()
+        self.pdf_viewer.setMinimumHeight(300)
+        right_panel.addWidget(self.pdf_viewer)
+
         # Botón eliminar
         self.delete_pdf_btn = QtWidgets.QPushButton("Delete Selected PDF")
         self.delete_pdf_btn.setEnabled(False)
@@ -332,6 +341,8 @@ class MainWindow(QtWidgets.QWidget):
         self.search_btn.clicked.connect(self.search_invoices)
         self.search_input.returnPressed.connect(self.search_invoices)
 
+       
+
         # Carga inicial
         self.load_invoices()
 
@@ -350,34 +361,22 @@ class MainWindow(QtWidgets.QWidget):
         for row_data in invoices:
             row = self.table.rowCount()
             self.table.insertRow(row)
-            self.table.setItem(row, 0, QtWidgets.QTableWidgetItem(str(row_data[1])))
-            self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(str(row_data[2])))
-            self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(str(row_data[3])))
+            number, date, folder, status = row_data[1], row_data[2], row_data[3], row_data[4]
+
+            self.table.setItem(row, 0, QtWidgets.QTableWidgetItem(number))
+            self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(date))
+            folder_item = QtWidgets.QTableWidgetItem(folder)
+            self.table.setItem(row, 2, folder_item)
 
             status_item = QtWidgets.QTableWidgetItem()
-            if row_data[4] == "verde":
+            if status == "completo":
                 status_item.setIcon(self.green_check_icon)
             else:
                 status_item.setIcon(self.red_cross_icon)
-            status_item.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
             self.table.setItem(row, 3, status_item)
 
-        self.status_combo.setEnabled(False)
-        self.pdf_list.clear()
-        self.delete_pdf_btn.setEnabled(False)
-
-    def search_invoices(self):
-        text = self.search_input.text().strip().lower()
-        if not text:
-            self.load_invoices()
-            return
-
-        invoices = get_invoices()
-        filtered = []
-        for inv in invoices:
-            if text in str(inv[1]).lower() or text in str(inv[2]).lower():
-                filtered.append(inv)
-        self.load_invoices(filtered)
+        if self.table.rowCount() > 0:
+            self.table.selectRow(0)
 
     def open_create_dialog(self):
         dialog = InvoiceCreateDialog()
@@ -385,117 +384,112 @@ class MainWindow(QtWidgets.QWidget):
         dialog.exec()
 
     def show_invoice_pdfs(self):
+        selected = self.table.selectedItems()
         self.pdf_list.clear()
-        selected_rows = self.table.selectionModel().selectedRows()
-        if not selected_rows:
-            self.delete_pdf_btn.setEnabled(False)
-            self.status_combo.setEnabled(False)
-            return
-
-        row = selected_rows[0].row()
-        folder_item = self.table.item(row, 2)
-        if not folder_item:
-            self.delete_pdf_btn.setEnabled(False)
-            self.status_combo.setEnabled(False)
-            return
-        folder_path = folder_item.text()
-        if not os.path.exists(folder_path):
-            self.delete_pdf_btn.setEnabled(False)
-            self.status_combo.setEnabled(False)
-            return
-
-        pdf_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.pdf')]
-        self.pdf_list.addItems(pdf_files)
+        self.pdf_viewer.setHtml("")  # limpiar visor al cambiar factura
+        self.status_combo.setEnabled(False)
         self.delete_pdf_btn.setEnabled(False)
 
-        status_item = self.table.item(row, 3)
-        if status_item and status_item.icon().cacheKey() == self.green_check_icon.cacheKey():
-            self.status_combo.setCurrentText("completo")
-        else:
-            self.status_combo.setCurrentText("incompleto")
+        if not selected:
+            return
+        
+        folder = self.table.item(selected[0].row(), 2).text()
+        status = self.table.item(selected[0].row(), 3).icon()
+
+        # Mostrar estado y habilitar combo
+        current_status_text = "completo" if self.table.item(selected[0].row(), 3).icon().cacheKey() == self.green_check_icon.cacheKey() else "incompleto"
+        self.status_combo.setCurrentText(current_status_text)
         self.status_combo.setEnabled(True)
 
-    def open_pdf_file(self, item):
-        selected_rows = self.table.selectionModel().selectedRows()
-        if not selected_rows:
+        if not os.path.exists(folder):
             return
 
-        row = selected_rows[0].row()
-        folder_item = self.table.item(row, 2)
-        if not folder_item:
-            return
-        folder_path = folder_item.text()
-        pdf_path = os.path.join(folder_path, item.text())
-
-        if os.path.exists(pdf_path):
-            if sys.platform == 'win32':
-                os.startfile(pdf_path)
-            elif sys.platform == 'darwin':
-                os.system(f'open "{pdf_path}"')
-            else:
-                os.system(f'xdg-open "{pdf_path}"')
+        files = [f for f in os.listdir(folder) if f.lower().endswith('.pdf')]
+        self.pdf_list.addItems(files)
 
     def toggle_invoice_status(self, item):
         row = item.row()
+        current_status = self.table.item(row, 3).icon()
+        current_status_text = "completo" if current_status.cacheKey() == self.green_check_icon.cacheKey() else "incompleto"
+        new_status = "incompleto" if current_status_text == "completo" else "completo"
         number = self.table.item(row, 0).text()
-        current_item = self.table.item(row, 3)
-
-        new_status = "verde" if current_item.icon().cacheKey() == self.red_cross_icon.cacheKey() else "rojo"
         update_invoice_status(number, new_status)
         self.load_invoices()
+
+    def open_pdf_file(self, item):
+        selected_invoice = self.table.selectedItems()
+        if not selected_invoice:
+            return
+        folder = self.table.item(selected_invoice[0].row(), 2).text()
+        path = os.path.join(folder, item.text())
+        if os.path.exists(path):
+            QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(path))
 
     def update_delete_button_state(self):
-        has_selection = bool(self.pdf_list.selectedItems())
-        self.delete_pdf_btn.setEnabled(has_selection)
+        self.delete_pdf_btn.setEnabled(self.pdf_list.currentItem() is not None)
 
     def delete_selected_pdf(self):
-        selected_items = self.pdf_list.selectedItems()
-        if not selected_items:
+        selected_invoice = self.table.selectedItems()
+        selected_pdf = self.pdf_list.currentItem()
+        if not selected_invoice or not selected_pdf:
             return
-        pdf_name = selected_items[0].text()
+        
+        folder = self.table.item(selected_invoice[0].row(), 2).text()
+        path = os.path.join(folder, selected_pdf.text())
 
-        selected_rows = self.table.selectionModel().selectedRows()
-        if not selected_rows:
-            return
-        row = selected_rows[0].row()
-        folder_item = self.table.item(row, 2)
-        if not folder_item:
-            return
-        folder_path = folder_item.text()
-
-        pdf_path = os.path.join(folder_path, pdf_name)
-        if os.path.exists(pdf_path):
+        reply = QtWidgets.QMessageBox.question(self, "Delete PDF", f"Are you sure you want to delete '{selected_pdf.text()}'?",
+                                               QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
+        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
             try:
-                os.remove(pdf_path)
-                QtWidgets.QMessageBox.information(self, "Deleted", f"File '{pdf_name}' was deleted successfully.")
+                os.remove(path)
+                self.pdf_list.takeItem(self.pdf_list.currentRow())
+                self.pdf_viewer.setHtml("")  # limpiar visor si borró el pdf mostrado
             except Exception as e:
-                QtWidgets.QMessageBox.warning(self, "Error", f"Could not delete '{pdf_name}':\n{str(e)}")
-                return
-        else:
-            QtWidgets.QMessageBox.warning(self, "Error", f"File '{pdf_name}' not found.")
+                QtWidgets.QMessageBox.warning(self, "Error", f"Could not delete file:\n{str(e)}")
 
-        self.show_invoice_pdfs()
-
-    def change_status(self):
+    def change_status(self, index):
         if not self.status_combo.isEnabled():
             return
-        selected_rows = self.table.selectionModel().selectedRows()
-        if not selected_rows:
+        selected = self.table.selectedItems()
+        if not selected:
             return
-        row = selected_rows[0].row()
-        number = self.table.item(row, 0).text()
-        new_status = "verde" if self.status_combo.currentText() == "completo" else "rojo"
+        number = self.table.item(selected[0].row(), 0).text()
+        new_status = self.status_combo.currentText()
         update_invoice_status(number, new_status)
         self.load_invoices()
+
+    def search_invoices(self):
+        text = self.search_input.text().strip().lower()
+        if not text:
+            self.load_invoices()
+            return
+        
+        invoices = get_invoices()
+        filtered = [inv for inv in invoices if text in inv[1].lower() or text in inv[2].lower()]
+        self.load_invoices(filtered)
+
+def show_pdf_in_viewer(self, current, previous):
+    if not current:
+        self.pdf_viewer.setHtml("")
+        return
+    selected_invoice = self.table.selectedItems()
+    if not selected_invoice:
+        self.pdf_viewer.setHtml("")
+        return
+    folder = self.table.item(selected_invoice[0].row(), 2).text()
+    pdf_file = current.text()
+    path = os.path.join(folder, pdf_file)
+    abs_path = os.path.abspath(path)
+    if os.path.exists(abs_path):
+        url = QtCore.QUrl.fromLocalFile(abs_path)
+        self.pdf_viewer.setUrl(url)
+    else:
+        self.pdf_viewer.setHtml("")
+
 
 if __name__ == "__main__":
     init_db()
     app = QtWidgets.QApplication(sys.argv)
-    
-    # Establecer estilo de la aplicación
-    app.setStyle('Fusion')
-    
-    # Crear y mostrar ventana principal
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
