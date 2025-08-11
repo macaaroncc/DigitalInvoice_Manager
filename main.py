@@ -325,20 +325,23 @@ class MainWindow(QtWidgets.QWidget):
         status_layout.addWidget(self.status_combo)
         right_panel.addLayout(status_layout)
 
-        # Lista PDF
+            # Lista PDF
         pdf_label = QtWidgets.QLabel("Attached PDFs:")
         pdf_label.setStyleSheet("font-weight: bold;")
         right_panel.addWidget(pdf_label)
-        
+
         self.pdf_list = QtWidgets.QListWidget()
         self.pdf_list.setMinimumWidth(400)
         self.pdf_list.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-        right_panel.addWidget(self.pdf_list)
+        right_panel.addWidget(self.pdf_list, stretch=2)  # ⬅ Más altura para la lista
 
-        # Visor PDF agregado aquí:
+        # Visor PDF
         self.pdf_viewer = QtWebEngineWidgets.QWebEngineView()
-        self.pdf_viewer.setMinimumHeight(200)
-        right_panel.addWidget(self.pdf_viewer)
+        self.pdf_viewer.setMinimumHeight(300)  # ⬅ Menos altura mínima
+        right_panel.addWidget(self.pdf_viewer, stretch=1)  # ⬅ Menos proporción vertical
+
+
+        
 
         # Botón eliminar
         self.delete_pdf_btn = QtWidgets.QPushButton("Delete Selected PDF")
