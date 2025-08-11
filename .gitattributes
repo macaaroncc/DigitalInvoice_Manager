@@ -1,0 +1,16 @@
+# Forzar que Python sea el único lenguaje detectado
+*.py   linguist-language=Python
+*.tex  linguist-language=Python
+*.html linguist-language=Python
+*.htm  linguist-language=Python
+
+# Evitar que imágenes o recursos influyan en las estadísticas
+*.png  linguist-detectable=false
+*.jpg  linguist-detectable=false
+*.jpeg linguist-detectable=false
+*.svg  linguist-detectable=false
+*.ico  linguist-detectable=false
+
+# Ignorar carpetas con datos o recursos no relacionados con el código
+data/*  linguist-detectable=false
+icons/* linguist-detectable=false
