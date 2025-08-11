@@ -49,3 +49,11 @@ def update_invoice_status(number, status):
     cur.execute("UPDATE invoices SET status=? WHERE number=?", (status, number))
     conn.commit()
     conn.close()
+
+def delete_invoice(number):
+    import sqlite3
+    conn = sqlite3.connect("invoices.db")
+    c = conn.cursor()
+    c.execute("DELETE FROM invoices WHERE number = ?", (number,))
+    conn.commit()
+    conn.close()

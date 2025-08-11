@@ -2,8 +2,13 @@ import sys
 import os
 import shutil
 from PyQt6 import QtWidgets, QtCore, QtGui
+import shutil
+import subprocess
+import sys
+import os
 
-# Import necesario para visor PDF
+
+
 from PyQt6 import QtWebEngineWidgets
 
 from db import init_db, add_invoice, get_invoices, update_invoice_status
@@ -83,6 +88,12 @@ class InvoiceCreateDialog(QtWidgets.QDialog):
             }
         """)
 
+
+
+     
+
+
+
         layout = QtWidgets.QVBoxLayout(self)
 
         form_layout = QtWidgets.QFormLayout()
@@ -146,8 +157,8 @@ class MainWindow(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Futura Petrolium Manager")
-        self.setGeometry(200, 200, 1000, 700)
-        
+        self.setGeometry(200, 100, 900, 700)
+
         # Cargar íconos
         self.green_check_icon = QtGui.QIcon("icons/green_check.png")
         self.red_cross_icon = QtGui.QIcon("icons/red_cross.png")
@@ -221,30 +232,24 @@ class MainWindow(QtWidgets.QWidget):
         # Tamaño original del logo (1297x593)
         logo_width = 1297
         logo_height = 593
-        aspect_ratio = logo_width / logo_height  # Relación de aspecto (2.187)
+        aspect_ratio = logo_width / logo_height
 
-        # Tamaño máximo disponible (ajusta estos valores según tu espacio)
-        max_width = 300  # Ancho máximo que quieres que ocupe
-        max_height = 150  # Altura máxima que quieres que ocupe
+        max_width = 300
+        max_height = 150
 
-        # Calcular dimensiones manteniendo relación de aspecto
         if logo_width > max_width or logo_height > max_height:
-            # Reducir basado en el ancho
             width = max_width
             height = int(width / aspect_ratio)
-            
-            # Verificar si la altura calculada excede el máximo
             if height > max_height:
                 height = max_height
                 width = int(height * aspect_ratio)
         else:
-            # Si el logo es más pequeño que el espacio disponible
             width = logo_width
             height = logo_height
 
         logo.setPixmap(pixmap.scaled(
-            width, 
-            height, 
+            width,
+            height,
             QtCore.Qt.AspectRatioMode.KeepAspectRatio,
             QtCore.Qt.TransformationMode.SmoothTransformation
         ))
@@ -263,6 +268,7 @@ class MainWindow(QtWidgets.QWidget):
         left_panel = QtWidgets.QVBoxLayout()
         left_panel.setSpacing(10)
 
+       
         # Barra de búsqueda
         search_layout = QtWidgets.QHBoxLayout()
         self.search_input = QtWidgets.QLineEdit()
@@ -272,6 +278,8 @@ class MainWindow(QtWidgets.QWidget):
         self.search_btn.setFixedWidth(100)
         search_layout.addWidget(self.search_input)
         search_layout.addWidget(self.search_btn)
+
+        left_panel.addLayout(search_layout)
 
         # Tabla de facturas
         self.table = QtWidgets.QTableWidget()
@@ -291,8 +299,49 @@ class MainWindow(QtWidgets.QWidget):
                 color: black;
             }
         """)
+        left_panel.addWidget(self.table)
 
-        # Botón crear
+         # Botones para Delete Invoice y Open Folder uno al lado del otro con la mitad de tamaño
+        buttons_layout = QtWidgets.QHBoxLayout()
+
+        self.delete_invoice_btn = QtWidgets.QPushButton("Delete Invoice")
+        self.delete_invoice_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #ef5350;
+                color: white;
+                padding: 10px;
+                font-size: 14px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #e53935;
+            }
+        """)
+        self.delete_invoice_btn.setEnabled(False)
+        # Tamaño mitad ancho (100 * 0.5 = 50, por ejemplo)
+        self.delete_invoice_btn.setMinimumWidth(120)
+
+        self.btn_open_folder = QtWidgets.QPushButton("Open Folder")
+        self.btn_open_folder.setStyleSheet("""
+            QPushButton {
+                background-color: #1F497D;
+                color: white;
+                padding: 10px;
+                font-size: 14px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #173b6c;
+            }
+        """)
+        self.btn_open_folder.setMinimumWidth(120)
+
+        buttons_layout.addWidget(self.delete_invoice_btn)
+        buttons_layout.addWidget(self.btn_open_folder)
+
+        left_panel.addLayout(buttons_layout)
+
+        # Botón crear debajo, ocupando todo el ancho
         self.create_btn = QtWidgets.QPushButton("Create New Invoice")
         self.create_btn.setStyleSheet("""
             QPushButton {
@@ -304,12 +353,13 @@ class MainWindow(QtWidgets.QWidget):
                 background-color: #173b6c;
             }
         """)
-
-        left_panel.addLayout(search_layout)
-        left_panel.addWidget(self.table)
+        self.create_btn.setMinimumHeight(40)
         left_panel.addWidget(self.create_btn)
 
-        # Panel derecho
+
+        content_layout.addLayout(left_panel, stretch=2)
+
+        # Panel derecho (igual que antes)
         right_panel = QtWidgets.QVBoxLayout()
         right_panel.setSpacing(10)
 
@@ -325,7 +375,7 @@ class MainWindow(QtWidgets.QWidget):
         status_layout.addWidget(self.status_combo)
         right_panel.addLayout(status_layout)
 
-            # Lista PDF
+        # Lista PDF
         pdf_label = QtWidgets.QLabel("Attached PDFs:")
         pdf_label.setStyleSheet("font-weight: bold;")
         right_panel.addWidget(pdf_label)
@@ -333,17 +383,14 @@ class MainWindow(QtWidgets.QWidget):
         self.pdf_list = QtWidgets.QListWidget()
         self.pdf_list.setMinimumWidth(400)
         self.pdf_list.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-        right_panel.addWidget(self.pdf_list, stretch=2)  # ⬅ Más altura para la lista
+        right_panel.addWidget(self.pdf_list, stretch=2)
 
         # Visor PDF
         self.pdf_viewer = QtWebEngineWidgets.QWebEngineView()
-        self.pdf_viewer.setMinimumHeight(300)  # ⬅ Menos altura mínima
-        right_panel.addWidget(self.pdf_viewer, stretch=1)  # ⬅ Menos proporción vertical
+        self.pdf_viewer.setMinimumHeight(300)
+        right_panel.addWidget(self.pdf_viewer, stretch=1)
 
-
-        
-
-        # Botón eliminar
+        # Botón eliminar PDF
         self.delete_pdf_btn = QtWidgets.QPushButton("Delete Selected PDF")
         self.delete_pdf_btn.setEnabled(False)
         self.delete_pdf_btn.setStyleSheet("""
@@ -359,13 +406,16 @@ class MainWindow(QtWidgets.QWidget):
         """)
         right_panel.addWidget(self.delete_pdf_btn)
 
-        content_layout.addLayout(left_panel, stretch=2)
         content_layout.addLayout(right_panel, stretch=1)
+
         main_layout.addLayout(content_layout)
 
         # Conexiones
         self.create_btn.clicked.connect(self.open_create_dialog)
         self.table.itemSelectionChanged.connect(self.show_invoice_pdfs)
+        self.delete_invoice_btn.clicked.connect(self.delete_selected_invoice)
+        self.table.itemSelectionChanged.connect(self.update_delete_invoice_button_state)
+
         self.table.itemDoubleClicked.connect(self.toggle_invoice_status)
         self.pdf_list.itemDoubleClicked.connect(self.open_pdf_file)
         self.pdf_list.itemSelectionChanged.connect(self.update_delete_button_state)
@@ -374,7 +424,9 @@ class MainWindow(QtWidgets.QWidget):
         self.search_btn.clicked.connect(self.search_invoices)
         self.search_input.returnPressed.connect(self.search_invoices)
 
-       
+        self.btn_open_folder.clicked.connect(self.open_add_pdfs_dialog)
+
+
 
         # Carga inicial
         self.load_invoices()
@@ -501,23 +553,87 @@ class MainWindow(QtWidgets.QWidget):
         filtered = [inv for inv in invoices if text in inv[1].lower() or text in inv[2].lower()]
         self.load_invoices(filtered)
 
-def show_pdf_in_viewer(self, current, previous):
-    if not current:
-        self.pdf_viewer.setHtml("")
-        return
-    selected_invoice = self.table.selectedItems()
-    if not selected_invoice:
-        self.pdf_viewer.setHtml("")
-        return
-    folder = self.table.item(selected_invoice[0].row(), 2).text()
-    pdf_file = current.text()
-    path = os.path.join(folder, pdf_file)
-    abs_path = os.path.abspath(path)
-    if os.path.exists(abs_path):
-        url = QtCore.QUrl.fromLocalFile(abs_path)
-        self.pdf_viewer.setUrl(url)
-    else:
-        self.pdf_viewer.setHtml("")
+    def update_delete_invoice_button_state(self):
+    # Activa o desactiva el botón eliminar factura según selección
+        selected = self.table.selectedItems()
+        self.delete_invoice_btn.setEnabled(bool(selected))
+
+    def delete_selected_invoice(self):
+        selected = self.table.selectedItems()
+        if not selected:
+            return
+    
+        row = selected[0].row()
+        number = self.table.item(row, 0).text()
+        folder = self.table.item(row, 2).text()
+        
+        reply = QtWidgets.QMessageBox.question(
+            self, "Delete Invoice",
+            f"Are you sure you want to delete the invoice '{number}' and all its PDFs?",
+            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No
+        )
+        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+            try:
+                # Borra carpeta completa
+                if os.path.exists(folder):
+                    shutil.rmtree(folder)
+                
+                # Aquí debes borrar la factura de la base de datos
+                from db import delete_invoice
+                delete_invoice(number)
+                
+                QtWidgets.QMessageBox.information(self, "Deleted", f"Invoice '{number}' deleted successfully.")
+                self.load_invoices()
+                self.pdf_list.clear()
+                self.pdf_viewer.setHtml("")
+            except Exception as e:
+                QtWidgets.QMessageBox.warning(self, "Error", f"Could not delete invoice:\n{str(e)}")
+    
+
+   
+
+    def open_add_pdfs_dialog(self):
+        selected_rows = self.table.selectionModel().selectedRows()
+        if not selected_rows:
+            QtWidgets.QMessageBox.warning(self, "No Invoice Selected", "Please select an invoice in the table first.")
+            return
+        row = selected_rows[0].row()
+        invoice_folder_name = self.table.model().index(row, 2).data()
+        if not invoice_folder_name:
+            QtWidgets.QMessageBox.warning(self, "Error", "Selected row has no folder information.")
+            return
+        invoice_folder_name = invoice_folder_name.strip()
+        invoice_folder = invoice_folder_name
+        if not os.path.exists(invoice_folder):
+            QtWidgets.QMessageBox.warning(self, "Error", f"Invoice folder not found:\n{invoice_folder}")
+            return
+
+        # Abrir la carpeta en el explorador según el sistema operativo
+        if sys.platform == 'win32':
+            os.startfile(invoice_folder)
+        elif sys.platform == 'darwin':
+            subprocess.Popen(['open', invoice_folder])
+        else:  # Linux y otros
+            subprocess.Popen(['xdg-open', invoice_folder])
+
+
+    def show_pdf_in_viewer(self, current, previous):
+        if not current:
+            self.pdf_viewer.setHtml("")
+            return
+        selected_invoice = self.table.selectedItems()
+        if not selected_invoice:
+            self.pdf_viewer.setHtml("")
+            return
+        folder = self.table.item(selected_invoice[0].row(), 2).text()
+        pdf_file = current.text()
+        path = os.path.join(folder, pdf_file)
+        abs_path = os.path.abspath(path)
+        if os.path.exists(abs_path):
+            url = QtCore.QUrl.fromLocalFile(abs_path)
+            self.pdf_viewer.setUrl(url)
+        else:
+            self.pdf_viewer.setHtml("")
 
 
 if __name__ == "__main__":
