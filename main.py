@@ -17,7 +17,7 @@ class DropArea(QtWidgets.QWidget):
         self.setMinimumHeight(150)
         self.setStyleSheet("""
             DropArea {
-                border: 2px dashed #4fc3f7;
+                border: 2px dashed #1F497D;
                 border-radius: 8px;
                 background-color: #f8fdff;
             }
@@ -64,14 +64,14 @@ class InvoiceCreateDialog(QtWidgets.QDialog):
                 font-size: 13px;
             }
             QLineEdit, QDateEdit {
-                border: 1px solid #b3e5fc;
+                border: 1px solid #1F497D;
                 border-radius: 4px;
                 padding: 5px;
                 background-color: white;
                 color: black;
             }
             QPushButton {
-                background-color: #4fc3f7;
+                background-color: #1F497D;
                 color: white;
                 border: none;
                 border-radius: 4px;
@@ -79,7 +79,7 @@ class InvoiceCreateDialog(QtWidgets.QDialog):
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #29b6f6;
+                background-color: #173b6c;
             }
         """)
 
@@ -145,7 +145,7 @@ class InvoiceCreateDialog(QtWidgets.QDialog):
 class MainWindow(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("DigitalInvoice Manager")
+        self.setWindowTitle("Futura Petrolium Manager")
         self.setGeometry(200, 200, 1000, 700)
         
         # Cargar íconos
@@ -167,14 +167,14 @@ class MainWindow(QtWidgets.QWidget):
                 font-size: 13px;
             }
             QTableWidget QHeaderView::section {
-                background-color: #4fc3f7;
+                background-color: #1F497D;
                 color: white;
                 padding: 5px;
                 border: none;
                 font-weight: bold;
             }
             QPushButton {
-                background-color: #4fc3f7;
+                background-color: #1F497D;
                 color: white;
                 border: none;
                 border-radius: 4px;
@@ -183,13 +183,13 @@ class MainWindow(QtWidgets.QWidget):
                 min-width: 100px;
             }
             QPushButton:hover {
-                background-color: #29b6f6;
+                background-color: #173b6c;
             }
             QPushButton:pressed {
-                background-color: #0288d1;
+                background-color: #0d2a4a;
             }
             QLineEdit, QComboBox {
-                border: 1px solid #b3e5fc;
+                border: 1px solid #1F497D;
                 border-radius: 4px;
                 padding: 5px;
                 font-size: 13px;
@@ -214,12 +214,42 @@ class MainWindow(QtWidgets.QWidget):
         # Header con logo
         header = QtWidgets.QHBoxLayout()
         header.addStretch()
-        
+
         logo = QtWidgets.QLabel()
         pixmap = QtGui.QPixmap("icons/logo.png")
-        logo.setPixmap(pixmap)
-        logo.setScaledContents(True)  # Para que el logo se escale al tamaño del label
-        logo.setFixedHeight(60)       # Ajusta la altura que quieras para el logo
+
+        # Tamaño original del logo (1297x593)
+        logo_width = 1297
+        logo_height = 593
+        aspect_ratio = logo_width / logo_height  # Relación de aspecto (2.187)
+
+        # Tamaño máximo disponible (ajusta estos valores según tu espacio)
+        max_width = 300  # Ancho máximo que quieres que ocupe
+        max_height = 150  # Altura máxima que quieres que ocupe
+
+        # Calcular dimensiones manteniendo relación de aspecto
+        if logo_width > max_width or logo_height > max_height:
+            # Reducir basado en el ancho
+            width = max_width
+            height = int(width / aspect_ratio)
+            
+            # Verificar si la altura calculada excede el máximo
+            if height > max_height:
+                height = max_height
+                width = int(height * aspect_ratio)
+        else:
+            # Si el logo es más pequeño que el espacio disponible
+            width = logo_width
+            height = logo_height
+
+        logo.setPixmap(pixmap.scaled(
+            width, 
+            height, 
+            QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+            QtCore.Qt.TransformationMode.SmoothTransformation
+        ))
+        logo.setFixedSize(width, height)
+        logo.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
         header.addWidget(logo)
         header.addStretch()
@@ -266,12 +296,12 @@ class MainWindow(QtWidgets.QWidget):
         self.create_btn = QtWidgets.QPushButton("Create New Invoice")
         self.create_btn.setStyleSheet("""
             QPushButton {
-                background-color: #00acc1;
+                background-color: #1F497D;
                 padding: 10px;
                 font-size: 14px;
             }
             QPushButton:hover {
-                background-color: #0097a7;
+                background-color: #173b6c;
             }
         """)
 
@@ -307,7 +337,7 @@ class MainWindow(QtWidgets.QWidget):
 
         # Visor PDF agregado aquí:
         self.pdf_viewer = QtWebEngineWidgets.QWebEngineView()
-        self.pdf_viewer.setMinimumHeight(300)
+        self.pdf_viewer.setMinimumHeight(200)
         right_panel.addWidget(self.pdf_viewer)
 
         # Botón eliminar
