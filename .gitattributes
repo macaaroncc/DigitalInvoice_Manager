@@ -1,7 +1,8 @@
-# Forzar que los archivos Python y HTML se cuenten como Python
+# Forzar que los archivos Python, HTML y JS se cuenten como Python
 *.py   linguist-language=Python
 *.html linguist-language=Python
 *.htm  linguist-language=Python
+*.js   linguist-language=Python
 
 # Ignorar completamente los archivos TeX para que no influyan en las estadísticas
 *.tex  linguist-detectable=false
