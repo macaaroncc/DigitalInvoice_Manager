@@ -13,6 +13,8 @@
 *.jpeg linguist-detectable=false
 *.svg  linguist-detectable=false
 *.ico  linguist-detectable=false
+*.js   linguist-detectable=false
+
 
 # Ignorar carpetas de datos y recursos
 data/*  linguist-detectable=false
