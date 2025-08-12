@@ -16,3 +16,5 @@
 # Ignorar carpetas de datos y recursos
 data/*   linguist-detectable=false
 icons/*  linguist-detectable=false
+viewer/* linguist-detectable=false
+
