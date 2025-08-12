@@ -1,16 +1,112 @@
 import sys
 import os
 import shutil
-from PyQt6 import QtWidgets, QtCore, QtGui
-import shutil
 import subprocess
-import sys
-import os
-from PyQt6 import QtGui
-
+from PyQt6 import QtWidgets, QtCore, QtGui
 from PyQt6 import QtWebEngineWidgets
+from PyQt6.QtCore import QUrl, QUrlQuery
 
 from db import init_db, add_invoice, get_invoices, update_invoice_status
+
+# ======== ESTILOS FUTURISTAS ========
+futuristic_style_main = """
+    QWidget {
+        background-color: #ffffff;  /* fondo blanco puro */
+        font-family: 'Segoe UI', Arial, sans-serif;
+        color: #333333;
+        font-size: 14px;
+    }
+    QTableWidget {
+        border: none;
+        gridline-color: #e6e6e6;
+        selection-background-color: #1f6feb;
+        selection-color: white;
+        background-color: #ffffff;
+    }
+    QTableWidget QHeaderView::section {
+        background-color: #f5f5f5;  /* gris muy claro */
+        color: #333333;
+        padding: 8px;
+        border: none;
+        font-weight: bold;
+        font-size: 14px;
+    }
+    QPushButton {
+        background-color: #238636;  /* verde original */
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 14px;
+        font-size: 14px;
+        font-weight: bold;
+    }
+    QPushButton:hover {
+        background-color: #2ea043;
+    }
+    QPushButton:pressed {
+        background-color: #196c2e;
+    }
+    QLineEdit, QComboBox {
+        border: 1px solid #e6e6e6;
+        border-radius: 6px;
+        padding: 6px;
+        background-color: #fafafa;  /* gris claro */
+        color: #333333;
+        selection-background-color: #1f6feb;
+    }
+    QListWidget {
+        border: 1px solid #e6e6e6;
+        background-color: #fafafa;
+        font-size: 13px;
+        color: #333333;
+        border-radius: 6px;
+    }
+    QLabel {
+        font-size: 13px;
+        color: #555555;
+    }
+"""
+
+futuristic_style_droparea = """
+    DropArea {
+        border: 2px dashed #58a6ff;
+        border-radius: 8px;
+        background-color: rgba(56,139,253,0.05);
+    }
+    QLabel {
+        color: #58a6ff;
+        font-size: 14px;
+        font-weight: bold;
+    }
+"""
+
+futuristic_style_dialog = """
+    QDialog {
+        background-color: #ffffff;  /* fondo blanco puro */
+    }
+    QLabel {
+        color: #555555;
+        font-size: 13px;
+    }
+    QLineEdit, QDateEdit {
+        border: 1px solid #e6e6e6;
+        border-radius: 6px;
+        padding: 6px;
+        background-color: #fafafa;
+        color: #333333;
+    }
+    QPushButton {
+        background-color: #238636;
+        color: white;
+        border-radius: 6px;
+        padding: 8px;
+        font-weight: bold;
+    }
+    QPushButton:hover {
+        background-color: #2ea043;
+    }
+"""
+
 
 class DropArea(QtWidgets.QWidget):
     filesDropped = QtCore.pyqtSignal(list)
@@ -19,17 +115,7 @@ class DropArea(QtWidgets.QWidget):
         super().__init__()
         self.setAcceptDrops(True)
         self.setMinimumHeight(150)
-        self.setStyleSheet("""
-            DropArea {
-                border: 2px dashed #1F497D;
-                border-radius: 8px;
-                background-color: #f8fdff;
-            }
-            QLabel {
-                color: black;
-                font-size: 14px;
-            }
-        """)
+        self.setStyleSheet(futuristic_style_droparea)
         self.label = QtWidgets.QLabel("Drag and drop PDF files here", alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
         layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(self.label)
@@ -59,39 +145,7 @@ class InvoiceCreateDialog(QtWidgets.QDialog):
         super().__init__()
         self.setWindowTitle("Create Invoice")
         self.setMinimumSize(400, 250)
-        self.setStyleSheet("""
-            QDialog {
-                background-color: white;
-            }
-            QLabel {
-                color: black;
-                font-size: 13px;
-            }
-            QLineEdit, QDateEdit {
-                border: 1px solid #1F497D;
-                border-radius: 4px;
-                padding: 5px;
-                background-color: white;
-                color: black;
-            }
-            QPushButton {
-                background-color: #1F497D;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 8px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #173b6c;
-            }
-        """)
-
-
-
-     
-
-
+        self.setStyleSheet(futuristic_style_dialog)
 
         layout = QtWidgets.QVBoxLayout(self)
 
@@ -157,86 +211,32 @@ class MainWindow(QtWidgets.QWidget):
         super().__init__()
         self.setWindowIcon(QtGui.QIcon("icons/app_icon.png"))
         self.setWindowTitle("Futura Petrolium Manager")
-        self.setGeometry(200, 100, 900, 700)
+        self.setGeometry(400, 200, 1800, 1400)
+        self.setStyleSheet(futuristic_style_main)
 
         # Cargar íconos
         self.green_check_icon = QtGui.QIcon("icons/green_check.png")
         self.red_cross_icon = QtGui.QIcon("icons/red_cross.png")
         
-        # Estilo principal
-        self.setStyleSheet("""
-            QWidget {
-                background-color: white;
-                font-family: 'Segoe UI', Arial, sans-serif;
-                color: black;
-            }
-            QTableWidget {
-                border: 1px solid #e1f5fe;
-                gridline-color: #e1f5fe;
-                selection-background-color: #b3e5fc;
-                selection-color: black;
-                font-size: 13px;
-            }
-            QTableWidget QHeaderView::section {
-                background-color: #1F497D;
-                color: white;
-                padding: 5px;
-                border: none;
-                font-weight: bold;
-            }
-            QPushButton {
-                background-color: #1F497D;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 8px 12px;
-                font-size: 13px;
-                min-width: 100px;
-            }
-            QPushButton:hover {
-                background-color: #173b6c;
-            }
-            QPushButton:pressed {
-                background-color: #0d2a4a;
-            }
-            QLineEdit, QComboBox {
-                border: 1px solid #1F497D;
-                border-radius: 4px;
-                padding: 5px;
-                font-size: 13px;
-                color: black;
-            }
-            QListWidget {
-                border: 1px solid #e1f5fe;
-                background-color: #f8fdff;
-                font-size: 13px;
-                color: black;
-            }
-            QLabel {
-                font-size: 13px;
-                color: black;
-            }
-        """)
-
         main_layout = QtWidgets.QVBoxLayout(self)
         main_layout.setContentsMargins(15, 15, 15, 15)
         main_layout.setSpacing(15)
 
-        # Header con logo
-        header = QtWidgets.QHBoxLayout()
-        header.addStretch()
+       
 
+       # Panel izquierdo
+        content_layout = QtWidgets.QHBoxLayout()
+        content_layout.setSpacing(20)
+
+        left_panel = QtWidgets.QVBoxLayout()
+        left_panel.setSpacing(10)
+
+        # --- Logo arriba a la izquierda ---
         logo = QtWidgets.QLabel()
         pixmap = QtGui.QPixmap("icons/logo.png")
-
-        # Tamaño original del logo (1297x593)
-        logo_width = 1297
-        logo_height = 593
+        logo_width, logo_height = 1297, 593
         aspect_ratio = logo_width / logo_height
-
-        max_width = 300
-        max_height = 150
-
+        max_width, max_height = 300, 150
         if logo_width > max_width or logo_height > max_height:
             width = max_width
             height = int(width / aspect_ratio)
@@ -244,129 +244,83 @@ class MainWindow(QtWidgets.QWidget):
                 height = max_height
                 width = int(height * aspect_ratio)
         else:
-            width = logo_width
-            height = logo_height
-
-        logo.setPixmap(pixmap.scaled(
-            width,
-            height,
-            QtCore.Qt.AspectRatioMode.KeepAspectRatio,
-            QtCore.Qt.TransformationMode.SmoothTransformation
-        ))
+            width, height = logo_width, logo_height
+        logo.setPixmap(pixmap.scaled(width, height, QtCore.Qt.AspectRatioMode.KeepAspectRatio, QtCore.Qt.TransformationMode.SmoothTransformation))
         logo.setFixedSize(width, height)
-        logo.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        logo.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignTop)
 
-        header.addWidget(logo)
-        header.addStretch()
-        main_layout.addLayout(header)
+        left_panel.addWidget(logo)
 
-        # Contenido principal
-        content_layout = QtWidgets.QHBoxLayout()
-        content_layout.setSpacing(20)
-
-        # Panel izquierdo
-        left_panel = QtWidgets.QVBoxLayout()
-        left_panel.setSpacing(10)
-
-       
-        # Barra de búsqueda
+        # --- Tu contenido original del left_panel ---
         search_layout = QtWidgets.QHBoxLayout()
         self.search_input = QtWidgets.QLineEdit()
         self.search_input.setPlaceholderText("Search by Invoice Number or Date (YYYY-MM-DD)")
-        self.search_input.setStyleSheet("padding: 8px;")
         self.search_btn = QtWidgets.QPushButton("Search")
         self.search_btn.setFixedWidth(100)
         search_layout.addWidget(self.search_input)
         search_layout.addWidget(self.search_btn)
-
         left_panel.addLayout(search_layout)
 
-        # Tabla de facturas
         self.table = QtWidgets.QTableWidget()
         self.table.setColumnCount(4)
         self.table.setHorizontalHeaderLabels(["Number", "Date", "Folder", "Status"])
         self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.verticalHeader().setVisible(False)
-        self.table.setColumnHidden(2, True)  # Oculta columna Folder
-        header = self.table.horizontalHeader()
-        header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.Stretch)
-        self.table.setStyleSheet("""
-            QTableWidget::item {
-                padding: 5px;
-                color: black;
-            }
-        """)
+        self.table.setColumnHidden(2, True)
+        header_table = self.table.horizontalHeader()
+        header_table.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Stretch)
+        header_table.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)
+        header_table.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.Stretch)
         left_panel.addWidget(self.table)
 
-         # Botones para Delete Invoice y Open Folder uno al lado del otro con la mitad de tamaño
         buttons_layout = QtWidgets.QHBoxLayout()
-
         self.delete_invoice_btn = QtWidgets.QPushButton("Delete Invoice")
-        self.delete_invoice_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #ef5350;
-                color: white;
-                padding: 10px;
-                font-size: 14px;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #e53935;
-            }
-        """)
         self.delete_invoice_btn.setEnabled(False)
-        # Tamaño mitad ancho (100 * 0.5 = 50, por ejemplo)
         self.delete_invoice_btn.setMinimumWidth(120)
-
         self.btn_open_folder = QtWidgets.QPushButton("Open Folder")
-        self.btn_open_folder.setStyleSheet("""
-            QPushButton {
-                background-color: #1F497D;
-                color: white;
-                padding: 10px;
-                font-size: 14px;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #173b6c;
-            }
-        """)
         self.btn_open_folder.setMinimumWidth(120)
-
         buttons_layout.addWidget(self.delete_invoice_btn)
         buttons_layout.addWidget(self.btn_open_folder)
-
         left_panel.addLayout(buttons_layout)
 
-        # Botón crear debajo, ocupando todo el ancho
         self.create_btn = QtWidgets.QPushButton("Create New Invoice")
-        self.create_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #1F497D;
-                padding: 10px;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #173b6c;
-            }
-        """)
         self.create_btn.setMinimumHeight(40)
         left_panel.addWidget(self.create_btn)
 
+        content_layout.addLayout(left_panel, stretch=1)
 
-        content_layout.addLayout(left_panel, stretch=2)
-
-        # Panel derecho (igual que antes)
+                # Panel derecho
         right_panel = QtWidgets.QVBoxLayout()
         right_panel.setSpacing(10)
 
-        # Estado
+        
+
+        # Crear visor de PDF
+        self.pdf_viewer = QtWebEngineWidgets.QWebEngineView()
+        self.pdf_viewer.setMinimumHeight(300)
+
+        
+        # Crear lista de PDFs
+        self.pdf_list = QtWidgets.QListWidget()
+        self.pdf_list.setMinimumWidth(400)
+        self.pdf_list.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+        self.pdf_list.currentItemChanged.connect(self.show_pdf_in_viewer)
+
+        # Crear botón eliminar
+        self.delete_pdf_btn = QtWidgets.QPushButton("Delete Selected PDF")
+        self.delete_pdf_btn.setEnabled(False)
+
+        # Añadir widgets al layout en orden (visor arriba, lista y botón abajo)
+        right_panel.addWidget(self.pdf_viewer, stretch=2)
+        pdf_label = QtWidgets.QLabel("Attached PDFs:")
+        right_panel.addWidget(pdf_label)
+        right_panel.addWidget(self.pdf_list, stretch=1)
+     
+       
+        # Ahora añadimos el estado justo debajo de la lista y botón
         status_layout = QtWidgets.QHBoxLayout()
         status_label = QtWidgets.QLabel("Invoice Status:")
-        status_label.setStyleSheet("font-weight: bold;")
         self.status_combo = QtWidgets.QComboBox()
         self.status_combo.addItems(["incompleto", "completo"])
         self.status_combo.setEnabled(False)
@@ -375,47 +329,17 @@ class MainWindow(QtWidgets.QWidget):
         status_layout.addWidget(self.status_combo)
         right_panel.addLayout(status_layout)
 
-        # Lista PDF
-        pdf_label = QtWidgets.QLabel("Attached PDFs:")
-        pdf_label.setStyleSheet("font-weight: bold;")
-        right_panel.addWidget(pdf_label)
-
-        self.pdf_list = QtWidgets.QListWidget()
-        self.pdf_list.setMinimumWidth(400)
-        self.pdf_list.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-        right_panel.addWidget(self.pdf_list, stretch=2)
-
-        # Visor PDF
-        self.pdf_viewer = QtWebEngineWidgets.QWebEngineView()
-        self.pdf_viewer.setMinimumHeight(300)
-        right_panel.addWidget(self.pdf_viewer, stretch=1)
-
-        # Botón eliminar PDF
-        self.delete_pdf_btn = QtWidgets.QPushButton("Delete Selected PDF")
-        self.delete_pdf_btn.setEnabled(False)
-        self.delete_pdf_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #ef5350;
-            }
-            QPushButton:hover {
-                background-color: #e53935;
-            }
-            QPushButton:disabled {
-                background-color: #ef9a9a;
-            }
-        """)
         right_panel.addWidget(self.delete_pdf_btn)
 
-        content_layout.addLayout(right_panel, stretch=1)
-
+        content_layout.addLayout(right_panel, stretch=3)
         main_layout.addLayout(content_layout)
+
 
         # Conexiones
         self.create_btn.clicked.connect(self.open_create_dialog)
         self.table.itemSelectionChanged.connect(self.show_invoice_pdfs)
         self.delete_invoice_btn.clicked.connect(self.delete_selected_invoice)
         self.table.itemSelectionChanged.connect(self.update_delete_invoice_button_state)
-
         self.table.itemDoubleClicked.connect(self.toggle_invoice_status)
         self.pdf_list.itemDoubleClicked.connect(self.open_pdf_file)
         self.pdf_list.itemSelectionChanged.connect(self.update_delete_button_state)
@@ -423,8 +347,9 @@ class MainWindow(QtWidgets.QWidget):
         self.status_combo.currentIndexChanged.connect(self.change_status)
         self.search_btn.clicked.connect(self.search_invoices)
         self.search_input.returnPressed.connect(self.search_invoices)
-
         self.btn_open_folder.clicked.connect(self.open_add_pdfs_dialog)
+
+        self.load_invoices()
 
 
 
@@ -462,6 +387,22 @@ class MainWindow(QtWidgets.QWidget):
 
         if self.table.rowCount() > 0:
             self.table.selectRow(0)
+
+    def load_pdfs_for_invoice(self, invoice_folder):
+        self.pdf_list.clear()
+        if os.path.exists(invoice_folder):
+            for file in os.listdir(invoice_folder):
+                if file.lower().endswith(".pdf"):
+                    self.pdf_list.addItem(file)
+
+    def on_invoice_selected(self):
+        selected_invoice = self.table.selectedItems()
+        if not selected_invoice:
+            return
+        folder = self.table.item(selected_invoice[0].row(), 2).text()
+        self.load_pdfs_for_invoice(folder)
+
+
 
     def open_create_dialog(self):
         dialog = InvoiceCreateDialog()
@@ -617,28 +558,41 @@ class MainWindow(QtWidgets.QWidget):
             subprocess.Popen(['xdg-open', invoice_folder])
 
 
+   
+
     def show_pdf_in_viewer(self, current, previous):
         if not current:
             self.pdf_viewer.setHtml("")
             return
+
         selected_invoice = self.table.selectedItems()
         if not selected_invoice:
             self.pdf_viewer.setHtml("")
             return
+
         folder = self.table.item(selected_invoice[0].row(), 2).text()
         pdf_file = current.text()
         path = os.path.join(folder, pdf_file)
         abs_path = os.path.abspath(path)
+
         if os.path.exists(abs_path):
-            url = QtCore.QUrl.fromLocalFile(abs_path)
-            self.pdf_viewer.setUrl(url)
+            pdfjs_viewer_path = os.path.abspath(os.path.join("viewer", "web", "viewer.html"))
+            if os.path.exists(pdfjs_viewer_path):
+                viewer_url = QUrl.fromLocalFile(pdfjs_viewer_path)
+                pdf_url = QUrl.fromLocalFile(abs_path)
+                query = QUrlQuery()
+                query.addQueryItem("file", pdf_url.toString())
+                viewer_url.setQuery(query)
+                self.pdf_viewer.setUrl(viewer_url)
+            else:
+                self.pdf_viewer.setHtml("<h3 style='color:white;text-align:center'>⚠️ No se encontró PDF.js</h3>")
         else:
-            self.pdf_viewer.setHtml("")
+            self.pdf_viewer.setHtml("<h3 style='color:white;text-align:center'>📄 Archivo PDF no encontrado</h3>")
 
 
 if __name__ == "__main__":
     init_db()
     app = QtWidgets.QApplication(sys.argv)
     window = MainWindow()
-    window.show()
+    window.showMaximized()
     sys.exit(app.exec())
