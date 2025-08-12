@@ -18,4 +18,4 @@ data/*    linguist-detectable=false
 icons/*   linguist-detectable=false
 
 # Ignorar carpeta viewer completamente (no cuenta nada dentro)
-viewer/*  linguist-detectable=false
+viewer/** linguist-detectable=false
