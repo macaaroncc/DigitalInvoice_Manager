@@ -1,10 +1,10 @@
-<<<<<<< HEAD
-# Forzar que los archivos Python, HTML y JS se cuenten como Python
-*.py   linguist-language=Python
-*.html linguist-language=Python
-*.htm  linguist-language=Python
-*.js   linguist-language=Python
-
+# Forzar todos los archivos típicos a Python
+*.py    linguist-language=Python
+*.html  linguist-language=Python
+*.htm   linguist-language=Python
+*.js    linguist-language=Python
+*.css   linguist-language=Python
+*.tex   linguist-language=Python
 
 # Ignorar imágenes y recursos binarios
 *.png   linguist-detectable=false
@@ -14,7 +14,8 @@
 *.ico   linguist-detectable=false
 
 # Ignorar carpetas de datos y recursos
-data/*   linguist-detectable=false
-icons/*  linguist-detectable=false
-viewer/* linguist-detectable=false
+data/*    linguist-detectable=false
+icons/*   linguist-detectable=false
 
+# Ignorar carpeta viewer completamente (no cuenta nada dentro)
+viewer/*  linguist-detectable=false
