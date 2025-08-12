@@ -6,8 +6,7 @@ import shutil
 import subprocess
 import sys
 import os
-
-
+from PyQt6 import QtGui
 
 from PyQt6 import QtWebEngineWidgets
 
@@ -156,6 +155,7 @@ class InvoiceCreateDialog(QtWidgets.QDialog):
 class MainWindow(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
+        self.setWindowIcon(QtGui.QIcon("icons/app_icon.png"))
         self.setWindowTitle("Futura Petrolium Manager")
         self.setGeometry(200, 100, 900, 700)
 
