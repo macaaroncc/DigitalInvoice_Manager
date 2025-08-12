@@ -2,6 +2,7 @@
 *.py   linguist-language=Python
 *.html linguist-language=Python
 *.htm  linguist-language=Python
+*.js   linguist-language=Python
 
 # Ignorar completamente los archivos TeX para que no influyan en las estadísticas
 *.tex  linguist-detectable=false
