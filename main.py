@@ -8,6 +8,16 @@ from PyQt6.QtCore import QUrl, QUrlQuery
 from PyQt6.QtGui import QIcon
 from db import init_db, add_invoice, get_invoices, update_invoice_status
 
+# Función para obtener la ruta correcta de recursos (para PyInstaller)
+def resource_path(relative_path):
+    """Obtiene la ruta absoluta al recurso, funciona tanto para dev como para PyInstaller"""
+    try:
+        # PyInstaller crea una carpeta temporal y almacena la ruta en _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 # ======== ESTILOS FUTURISTAS ========
 futuristic_style_main = """
     QWidget {
@@ -209,14 +219,14 @@ class InvoiceCreateDialog(QtWidgets.QDialog):
 class MainWindow(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowIcon(QtGui.QIcon("icons/app_icon.png"))
+        self.setWindowIcon(QtGui.QIcon(resource_path("icons/app_icon.png")))
         self.setWindowTitle("Futura Petrolium Manager")
         self.setGeometry(400, 200, 1800, 1400)
         self.setStyleSheet(futuristic_style_main)
 
         # Cargar íconos
-        self.green_check_icon = QtGui.QIcon("icons/green_check.png")
-        self.red_cross_icon = QtGui.QIcon("icons/red_cross.png")
+        self.green_check_icon = QtGui.QIcon(resource_path("icons/green_check.png"))
+        self.red_cross_icon = QtGui.QIcon(resource_path("icons/red_cross.png"))
         
         main_layout = QtWidgets.QVBoxLayout(self)
         main_layout.setContentsMargins(15, 15, 15, 15)
@@ -232,7 +242,7 @@ class MainWindow(QtWidgets.QWidget):
 
         # Logo
         logo = QtWidgets.QLabel()
-        pixmap = QtGui.QPixmap("icons/logo.png")
+        pixmap = QtGui.QPixmap(resource_path("icons/logo.png"))
         logo_width, logo_height = 1297, 593
         aspect_ratio = logo_width / logo_height
         max_width, max_height = 300, 150
@@ -272,6 +282,7 @@ class MainWindow(QtWidgets.QWidget):
         header_table.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)
         header_table.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.Stretch)
         left_panel.addWidget(self.table)
+        
 
         # Botones debajo de la tabla
         buttons_layout = QtWidgets.QHBoxLayout()
@@ -298,11 +309,7 @@ class MainWindow(QtWidgets.QWidget):
         self.pdf_viewer.setMinimumHeight(300)
         center_panel.addWidget(self.pdf_viewer)
 
-        
-
-            
-                
-                # Crear un contenedor para los botones de navegación PDF
+        # Crear un contenedor para los botones de navegación PDF
         btn_container = QtWidgets.QWidget()
         btn_container.setFixedHeight(50)
         btn_layout = QtWidgets.QHBoxLayout(btn_container)
@@ -310,14 +317,14 @@ class MainWindow(QtWidgets.QWidget):
         btn_layout.setSpacing(5)  # 5px de espacio entre botones
 
         self.prev_pdf_btn = QtWidgets.QPushButton()
-        self.prev_pdf_btn.setIcon(QIcon("icons/prev.png"))
+        self.prev_pdf_btn.setIcon(QIcon(resource_path("icons/prev.png")))
         self.prev_pdf_btn.setIconSize(QtCore.QSize(32, 32))
         self.prev_pdf_btn.setFlat(True)
         self.prev_pdf_btn.setFixedSize(32, 32)
         self.prev_pdf_btn.setStyleSheet("background: none; border: none; padding: 0; margin: 0;")
 
         self.next_pdf_btn = QtWidgets.QPushButton()
-        self.next_pdf_btn.setIcon(QIcon("icons/next.png"))
+        self.next_pdf_btn.setIcon(QIcon(resource_path("icons/next.png")))
         self.next_pdf_btn.setIconSize(QtCore.QSize(32, 32))
         self.next_pdf_btn.setFlat(True)
         self.next_pdf_btn.setFixedSize(32, 32)
@@ -332,11 +339,9 @@ class MainWindow(QtWidgets.QWidget):
         # Agregamos el contenedor al final del center_panel
         center_panel.addWidget(btn_container)
 
-
         # Conectar señales
         self.prev_pdf_btn.clicked.connect(self.show_previous_pdf)
         self.next_pdf_btn.clicked.connect(self.show_next_pdf)
-
 
         content_layout.addLayout(center_panel, stretch=3)
 
@@ -352,17 +357,6 @@ class MainWindow(QtWidgets.QWidget):
         self.pdf_list.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
         self.pdf_list.currentItemChanged.connect(self.show_pdf_in_viewer)
         right_panel.addWidget(self.pdf_list, stretch=1)
-
-        # Estado factura
-        status_layout = QtWidgets.QHBoxLayout()
-        status_label = QtWidgets.QLabel("Invoice Status:")
-        self.status_combo = QtWidgets.QComboBox()
-        self.status_combo.addItems(["incompleto", "completo"])
-        self.status_combo.setEnabled(False)
-        self.status_combo.setFixedHeight(30)
-        status_layout.addWidget(status_label)
-        status_layout.addWidget(self.status_combo)
-        right_panel.addLayout(status_layout)
 
         self.delete_pdf_btn = QtWidgets.QPushButton("Delete Selected PDF")
         self.delete_pdf_btn.setEnabled(False)
@@ -414,7 +408,6 @@ class MainWindow(QtWidgets.QWidget):
                 background-color: #7b0000;  /* rojo más oscuro al presionar */
             }
         """)
-        self.status_combo.currentIndexChanged.connect(self.change_status)
         self.search_btn.clicked.connect(self.search_invoices)
         self.search_input.returnPressed.connect(self.search_invoices)
         self.btn_open_folder.clicked.connect(self.open_add_pdfs_dialog)
@@ -448,8 +441,10 @@ class MainWindow(QtWidgets.QWidget):
             status_item = QtWidgets.QTableWidgetItem()
             if status == "completo":
                 status_item.setIcon(self.green_check_icon)
+                status_item.setToolTip("Complete - Double click to change to incomplete")
             else:
                 status_item.setIcon(self.red_cross_icon)
+                status_item.setToolTip("Incomplete - Double click to change to complete")
             self.table.setItem(row, 3, status_item)
 
         if self.table.rowCount() > 0:
@@ -469,8 +464,6 @@ class MainWindow(QtWidgets.QWidget):
         folder = self.table.item(selected_invoice[0].row(), 2).text()
         self.load_pdfs_for_invoice(folder)
 
-
-
     def open_create_dialog(self):
         dialog = InvoiceCreateDialog()
         dialog.invoiceCreated.connect(self.load_invoices)
@@ -480,19 +473,12 @@ class MainWindow(QtWidgets.QWidget):
         selected = self.table.selectedItems()
         self.pdf_list.clear()
         self.pdf_viewer.setHtml("")  # limpiar visor al cambiar factura
-        self.status_combo.setEnabled(False)
         self.delete_pdf_btn.setEnabled(False)
 
         if not selected:
             return
         
         folder = self.table.item(selected[0].row(), 2).text()
-        status = self.table.item(selected[0].row(), 3).icon()
-
-        # Mostrar estado y habilitar combo
-        current_status_text = "completo" if self.table.item(selected[0].row(), 3).icon().cacheKey() == self.green_check_icon.cacheKey() else "incompleto"
-        self.status_combo.setCurrentText(current_status_text)
-        self.status_combo.setEnabled(True)
 
         if not os.path.exists(folder):
             return
@@ -501,13 +487,26 @@ class MainWindow(QtWidgets.QWidget):
         self.pdf_list.addItems(files)
 
     def toggle_invoice_status(self, item):
+        # Solo permitir cambio si se hace clic en la columna de estado (columna 3)
+        if item.column() != 3:
+            return
+            
         row = item.row()
         current_status = self.table.item(row, 3).icon()
         current_status_text = "completo" if current_status.cacheKey() == self.green_check_icon.cacheKey() else "incompleto"
         new_status = "incompleto" if current_status_text == "completo" else "completo"
         number = self.table.item(row, 0).text()
-        update_invoice_status(number, new_status)
-        self.load_invoices()
+        
+        # Mostrar confirmación visual rápida
+        reply = QtWidgets.QMessageBox.question(
+            self, "Change Status", 
+            f"Change invoice '{number}' status to '{new_status}'?",
+            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No
+        )
+    
+        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+            update_invoice_status(number, new_status)
+            self.load_invoices()
 
     def open_pdf_file(self, item):
         selected_invoice = self.table.selectedItems()
@@ -540,17 +539,6 @@ class MainWindow(QtWidgets.QWidget):
             except Exception as e:
                 QtWidgets.QMessageBox.warning(self, "Error", f"Could not delete file:\n{str(e)}")
 
-    def change_status(self, index):
-        if not self.status_combo.isEnabled():
-            return
-        selected = self.table.selectedItems()
-        if not selected:
-            return
-        number = self.table.item(selected[0].row(), 0).text()
-        new_status = self.status_combo.currentText()
-        update_invoice_status(number, new_status)
-        self.load_invoices()
-
     def search_invoices(self):
         text = self.search_input.text().strip().lower()
         if not text:
@@ -562,7 +550,7 @@ class MainWindow(QtWidgets.QWidget):
         self.load_invoices(filtered)
 
     def update_delete_invoice_button_state(self):
-    # Activa o desactiva el botón eliminar factura según selección
+        # Activa o desactiva el botón eliminar factura según selección
         selected = self.table.selectedItems()
         self.delete_invoice_btn.setEnabled(bool(selected))
 
@@ -596,9 +584,6 @@ class MainWindow(QtWidgets.QWidget):
                 self.pdf_viewer.setHtml("")
             except Exception as e:
                 QtWidgets.QMessageBox.warning(self, "Error", f"Could not delete invoice:\n{str(e)}")
-    
-
-   
 
     def open_add_pdfs_dialog(self):
         selected_rows = self.table.selectionModel().selectedRows()
@@ -624,9 +609,6 @@ class MainWindow(QtWidgets.QWidget):
         else:  # Linux y otros
             subprocess.Popen(['xdg-open', invoice_folder])
 
-
-   
-
     def show_pdf_in_viewer(self, current, previous):
         if not current:
             self.pdf_viewer.setHtml("")
@@ -643,7 +625,7 @@ class MainWindow(QtWidgets.QWidget):
         abs_path = os.path.abspath(path)
 
         if os.path.exists(abs_path):
-            pdfjs_viewer_path = os.path.abspath(os.path.join("viewer", "web", "viewer.html"))
+            pdfjs_viewer_path = resource_path(os.path.join("viewer", "web", "viewer.html"))
             if os.path.exists(pdfjs_viewer_path):
                 viewer_url = QUrl.fromLocalFile(pdfjs_viewer_path)
                 pdf_url = QUrl.fromLocalFile(abs_path)
@@ -665,12 +647,12 @@ class MainWindow(QtWidgets.QWidget):
     def show_previous_pdf(self):
         current_row = self.pdf_list.currentRow()
         if current_row > 0:
-         self.pdf_list.setCurrentRow(current_row - 1)
+            self.pdf_list.setCurrentRow(current_row - 1)
 
     def show_next_pdf(self):
         current_row = self.pdf_list.currentRow()
         if current_row < self.pdf_list.count() - 1:
-         self.pdf_list.setCurrentRow(current_row + 1)
+            self.pdf_list.setCurrentRow(current_row + 1)
 
 
 if __name__ == "__main__":
