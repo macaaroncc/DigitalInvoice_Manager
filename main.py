@@ -151,8 +151,9 @@ class DropArea(QtWidgets.QWidget):
 class InvoiceCreateDialog(QtWidgets.QDialog):
     invoiceCreated = QtCore.pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, current_year="2025"):
         super().__init__()
+        self.current_year = current_year
         self.setWindowTitle("Create Invoice")
         self.setMinimumSize(400, 250)
         self.setStyleSheet(futuristic_style_dialog)
@@ -196,22 +197,31 @@ class InvoiceCreateDialog(QtWidgets.QDialog):
             QtWidgets.QMessageBox.warning(self, "Error", "Invoice number is required")
             return
 
-        folder = os.path.join("data", number)
-        if not os.path.exists(folder):
-            os.makedirs(folder)
+        # Usar el año seleccionado en el desplegable para crear la carpeta
+        year = self.current_year
+        year_folder = os.path.join("data", year)
+        
+        # Crear carpeta del año si no existe
+        if not os.path.exists(year_folder):
+            os.makedirs(year_folder)
+        
+        # Crear carpeta de la factura dentro del año
+        invoice_folder = os.path.join(year_folder, number)
+        if not os.path.exists(invoice_folder):
+            os.makedirs(invoice_folder)
 
-        add_invoice(number, date, folder, "rojo")
+        add_invoice(number, date, invoice_folder, "rojo")
 
         for file_path in self.files_to_copy:
             filename = os.path.basename(file_path)
-            dest_path = os.path.join(folder, filename)
+            dest_path = os.path.join(invoice_folder, filename)
             if not os.path.exists(dest_path):
                 try:
                     shutil.copy(file_path, dest_path)
                 except Exception as e:
                     QtWidgets.QMessageBox.warning(self, "Error Copying File", f"Could not copy {filename}:\n{str(e)}")
 
-        QtWidgets.QMessageBox.information(self, "Invoice Saved", f"Invoice '{number}' saved with {len(self.files_to_copy)} PDFs.")
+        QtWidgets.QMessageBox.information(self, "Invoice Saved", f"Invoice '{number}' saved in {year} with {len(self.files_to_copy)} PDFs.")
         self.invoiceCreated.emit()
         self.close()
 
@@ -259,15 +269,32 @@ class MainWindow(QtWidgets.QWidget):
         logo.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignTop)
         left_panel.addWidget(logo)
 
+        # Selector de año y buscador
+        controls_layout = QtWidgets.QHBoxLayout()
+        
+        # Selector de año
+        year_layout = QtWidgets.QHBoxLayout()
+        self.year_combo = QtWidgets.QComboBox()
+        self.year_combo.addItems(["2022", "2023", "2024", "2025"])
+        self.year_combo.setCurrentText("2025")  # Por defecto 2025
+        self.year_combo.setMinimumWidth(80)
+        self.year_combo.setMaximumWidth(100)
+        year_layout.addWidget(self.year_combo)
+        year_layout.addStretch()
+        
         # Buscador
         search_layout = QtWidgets.QHBoxLayout()
         self.search_input = QtWidgets.QLineEdit()
-        self.search_input.setPlaceholderText("Search by Invoice Number or Date (YYYY-MM-DD)")
+        self.search_input.setPlaceholderText("Invoice Number:")
         self.search_btn = QtWidgets.QPushButton("Search")
         self.search_btn.setFixedWidth(100)
         search_layout.addWidget(self.search_input)
         search_layout.addWidget(self.search_btn)
-        left_panel.addLayout(search_layout)
+        
+        # Combinar año y buscador en una línea
+        controls_layout.addLayout(year_layout)
+        controls_layout.addLayout(search_layout)
+        left_panel.addLayout(controls_layout)
 
         # Tabla
         self.table = QtWidgets.QTableWidget()
@@ -411,9 +438,12 @@ class MainWindow(QtWidgets.QWidget):
         self.search_btn.clicked.connect(self.search_invoices)
         self.search_input.returnPressed.connect(self.search_invoices)
         self.btn_open_folder.clicked.connect(self.open_add_pdfs_dialog)
+        
+        # Conectar selector de año
+        self.year_combo.currentTextChanged.connect(self.on_year_changed)
 
-        # Carga inicial
-        self.load_invoices()
+        # Carga inicial - cargar facturas por año (por defecto 2025)
+        self.load_invoices_by_year()
 
 
     def load_invoices(self, invoices=None):
@@ -465,8 +495,10 @@ class MainWindow(QtWidgets.QWidget):
         self.load_pdfs_for_invoice(folder)
 
     def open_create_dialog(self):
-        dialog = InvoiceCreateDialog()
-        dialog.invoiceCreated.connect(self.load_invoices)
+        # Pasar el año actualmente seleccionado al diálogo
+        current_year = self.year_combo.currentText()
+        dialog = InvoiceCreateDialog(current_year)
+        dialog.invoiceCreated.connect(self.load_invoices_by_year)  # Recargar vista por año
         dialog.exec()
 
     def show_invoice_pdfs(self):
@@ -506,7 +538,7 @@ class MainWindow(QtWidgets.QWidget):
     
         if reply == QtWidgets.QMessageBox.StandardButton.Yes:
             update_invoice_status(number, new_status)
-            self.load_invoices()
+            self.load_invoices_by_year()
 
     def open_pdf_file(self, item):
         selected_invoice = self.table.selectedItems()
@@ -542,12 +574,21 @@ class MainWindow(QtWidgets.QWidget):
     def search_invoices(self):
         text = self.search_input.text().strip().lower()
         if not text:
-            self.load_invoices()
+            self.load_invoices()  # Cargar tabla original cuando no hay búsqueda
             return
         
+        # Buscar en todas las facturas de la base de datos
         invoices = get_invoices()
-        filtered = [inv for inv in invoices if text in inv[1].lower() or text in inv[2].lower()]
-        self.load_invoices(filtered)
+        filtered_invoices = []
+        
+        for invoice in invoices:
+            number, date, folder, status = invoice[1], invoice[2], invoice[3], invoice[4]
+            # Buscar en número de factura o fecha
+            if text in number.lower() or text in date.lower():
+                filtered_invoices.append(invoice)
+        
+        # Mostrar resultados filtrados
+        self.load_invoices(filtered_invoices)
 
     def update_delete_invoice_button_state(self):
         # Activa o desactiva el botón eliminar factura según selección
@@ -579,7 +620,7 @@ class MainWindow(QtWidgets.QWidget):
                 delete_invoice(number)
                 
                 QtWidgets.QMessageBox.information(self, "Deleted", f"Invoice '{number}' deleted successfully.")
-                self.load_invoices()
+                self.load_invoices_by_year()  # Recargar vista por año
                 self.pdf_list.clear()
                 self.pdf_viewer.setHtml("")
             except Exception as e:
@@ -653,6 +694,93 @@ class MainWindow(QtWidgets.QWidget):
         current_row = self.pdf_list.currentRow()
         if current_row < self.pdf_list.count() - 1:
             self.pdf_list.setCurrentRow(current_row + 1)
+
+    # ===== NUEVAS FUNCIONES PARA MANEJO POR AÑO =====
+    
+    def on_year_changed(self, year):
+        """Se ejecuta cuando cambia el año seleccionado"""
+        self.pdf_list.clear()
+        self.pdf_viewer.setHtml("")
+        self.load_invoices_by_year()
+    
+    def load_invoices_by_year(self):
+        """Carga las facturas únicamente desde la carpeta del año seleccionado"""
+        selected_year = self.year_combo.currentText()
+        year_folder = os.path.join("data", selected_year)
+        
+        self.table.setRowCount(0)
+        
+        if not os.path.exists(year_folder):
+            self.pdf_viewer.setHtml(f"<h3 style='color:#666;text-align:center'>No hay carpeta para el año {selected_year}</h3>")
+            return
+        
+        invoices_data = []
+        
+        try:
+            # Obtener todas las carpetas de facturas del año
+            for invoice_folder_name in os.listdir(year_folder):
+                invoice_path = os.path.join(year_folder, invoice_folder_name)
+                if os.path.isdir(invoice_path):
+                    # Buscar información en la base de datos para obtener fecha y estado reales
+                    all_invoices = get_invoices()
+                    invoice_date = selected_year  # Por defecto usar el año
+                    invoice_status = "completo"  # Por defecto completo para facturas externas
+                    
+                    # Buscar en la BD si existe información adicional
+                    for db_invoice in all_invoices:
+                        if db_invoice[1] == invoice_folder_name:  # Coincidir por número de factura
+                            invoice_date = db_invoice[2]
+                            invoice_status = db_invoice[4]
+                            break
+                    
+                    invoice_data = {
+                        'number': invoice_folder_name,
+                        'date': invoice_date,
+                        'folder': invoice_path,
+                        'status': invoice_status
+                    }
+                    invoices_data.append(invoice_data)
+        except Exception as e:
+            print(f"Error loading invoices from {year_folder}: {e}")
+            return
+        
+        # Si no hay datos, mostrar mensaje
+        if not invoices_data:
+            self.pdf_viewer.setHtml(f"<h3 style='color:#666;text-align:center'>No hay facturas en la carpeta {selected_year}</h3>")
+            return
+        
+        # Ordenar las facturas por número
+        try:
+            invoices_data.sort(key=lambda x: int(x['number']) if x['number'].isdigit() else 0, reverse=True)
+        except:
+            invoices_data.sort(key=lambda x: x['number'], reverse=True)
+        
+        # Llenar la tabla con los datos
+        for invoice_data in invoices_data:
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+            
+            self.table.setItem(row, 0, QtWidgets.QTableWidgetItem(invoice_data['number']))
+            self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(invoice_data['date']))
+            self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(invoice_data['folder']))
+            
+            # Icono de estado
+            status_item = QtWidgets.QTableWidgetItem()
+            if invoice_data['status'] == "completo":
+                status_item.setIcon(self.green_check_icon)
+                status_item.setToolTip("Complete - Double click to change to incomplete")
+            else:
+                status_item.setIcon(self.red_cross_icon)
+                status_item.setToolTip("Incomplete - Double click to change to complete")
+            self.table.setItem(row, 3, status_item)
+        
+        # Seleccionar la primera fila si hay datos
+        if self.table.rowCount() > 0:
+            self.table.selectRow(0)
+    
+    def get_selected_year_folder(self):
+        """Retorna la carpeta del año actualmente seleccionado"""
+        return os.path.join("data", self.year_combo.currentText())
 
 
 if __name__ == "__main__":
