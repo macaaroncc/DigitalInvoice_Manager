@@ -5,7 +5,7 @@ import subprocess
 from PyQt6 import QtWidgets, QtCore, QtGui
 from PyQt6 import QtWebEngineWidgets
 from PyQt6.QtCore import QUrl, QUrlQuery
-
+from PyQt6.QtGui import QIcon
 from db import init_db, add_invoice, get_invoices, update_invoice_status
 
 # ======== ESTILOS FUTURISTAS ========
@@ -222,16 +222,15 @@ class MainWindow(QtWidgets.QWidget):
         main_layout.setContentsMargins(15, 15, 15, 15)
         main_layout.setSpacing(15)
 
-       
-
-       # Panel izquierdo
+        # Panel horizontal principal
         content_layout = QtWidgets.QHBoxLayout()
         content_layout.setSpacing(20)
 
+        # -------- LEFT PANEL --------
         left_panel = QtWidgets.QVBoxLayout()
         left_panel.setSpacing(10)
 
-        # --- Logo arriba a la izquierda ---
+        # Logo
         logo = QtWidgets.QLabel()
         pixmap = QtGui.QPixmap("icons/logo.png")
         logo_width, logo_height = 1297, 593
@@ -248,10 +247,9 @@ class MainWindow(QtWidgets.QWidget):
         logo.setPixmap(pixmap.scaled(width, height, QtCore.Qt.AspectRatioMode.KeepAspectRatio, QtCore.Qt.TransformationMode.SmoothTransformation))
         logo.setFixedSize(width, height)
         logo.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignTop)
-
         left_panel.addWidget(logo)
 
-        # --- Tu contenido original del left_panel ---
+        # Buscador
         search_layout = QtWidgets.QHBoxLayout()
         self.search_input = QtWidgets.QLineEdit()
         self.search_input.setPlaceholderText("Search by Invoice Number or Date (YYYY-MM-DD)")
@@ -261,6 +259,7 @@ class MainWindow(QtWidgets.QWidget):
         search_layout.addWidget(self.search_btn)
         left_panel.addLayout(search_layout)
 
+        # Tabla
         self.table = QtWidgets.QTableWidget()
         self.table.setColumnCount(4)
         self.table.setHorizontalHeaderLabels(["Number", "Date", "Folder", "Status"])
@@ -274,6 +273,7 @@ class MainWindow(QtWidgets.QWidget):
         header_table.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.Stretch)
         left_panel.addWidget(self.table)
 
+        # Botones debajo de la tabla
         buttons_layout = QtWidgets.QHBoxLayout()
         self.delete_invoice_btn = QtWidgets.QPushButton("Delete Invoice")
         self.delete_invoice_btn.setEnabled(False)
@@ -290,35 +290,62 @@ class MainWindow(QtWidgets.QWidget):
 
         content_layout.addLayout(left_panel, stretch=1)
 
-                # Panel derecho
+        # -------- CENTER PANEL (visor PDF) --------
+        center_panel = QtWidgets.QVBoxLayout()
+        center_panel.setSpacing(10)
+
+        self.pdf_viewer = QtWebEngineWidgets.QWebEngineView()
+        self.pdf_viewer.setMinimumHeight(300)
+        center_panel.addWidget(self.pdf_viewer)
+
+        
+
+     
+        # -------- Controles de navegación PDF --------
+        self.prev_pdf_btn = QtWidgets.QPushButton()
+        self.prev_pdf_btn.setIcon(QIcon("icons/prev.png"))
+        self.prev_pdf_btn.setIconSize(QtCore.QSize(32, 32))
+        self.prev_pdf_btn.setFlat(True)
+        self.prev_pdf_btn.setStyleSheet("background: none; border: none; padding: 0; margin: 0;")
+
+        self.next_pdf_btn = QtWidgets.QPushButton()
+        self.next_pdf_btn.setIcon(QIcon("icons/next.png"))
+        self.next_pdf_btn.setIconSize(QtCore.QSize(32, 32))
+        self.next_pdf_btn.setFlat(True)
+        self.next_pdf_btn.setStyleSheet("background: none; border: none; padding: 0; margin: 0;")
+
+        nav_layout = QtWidgets.QHBoxLayout()
+        nav_layout.setContentsMargins(0, 0, 0, 0)  # sin márgenes alrededor del layout
+        nav_layout.setSpacing(0)  # sin espacio entre los botones
+        nav_layout.addWidget(self.prev_pdf_btn)
+        nav_layout.addWidget(self.next_pdf_btn)
+
+        # Agregamos el layout de navegación al final del center_panel
+        center_panel.addLayout(nav_layout)
+
+
+
+        # Conectar señales
+        self.prev_pdf_btn.clicked.connect(self.show_previous_pdf)
+        self.next_pdf_btn.clicked.connect(self.show_next_pdf)
+
+
+        content_layout.addLayout(center_panel, stretch=3)
+
+        # -------- RIGHT PANEL --------
         right_panel = QtWidgets.QVBoxLayout()
         right_panel.setSpacing(10)
 
-        
+        pdf_label = QtWidgets.QLabel("Attached PDFs:")
+        right_panel.addWidget(pdf_label)
 
-        # Crear visor de PDF
-        self.pdf_viewer = QtWebEngineWidgets.QWebEngineView()
-        self.pdf_viewer.setMinimumHeight(300)
-
-        
-        # Crear lista de PDFs
         self.pdf_list = QtWidgets.QListWidget()
         self.pdf_list.setMinimumWidth(400)
         self.pdf_list.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
         self.pdf_list.currentItemChanged.connect(self.show_pdf_in_viewer)
-
-        # Crear botón eliminar
-        self.delete_pdf_btn = QtWidgets.QPushButton("Delete Selected PDF")
-        self.delete_pdf_btn.setEnabled(False)
-
-        # Añadir widgets al layout en orden (visor arriba, lista y botón abajo)
-        right_panel.addWidget(self.pdf_viewer, stretch=2)
-        pdf_label = QtWidgets.QLabel("Attached PDFs:")
-        right_panel.addWidget(pdf_label)
         right_panel.addWidget(self.pdf_list, stretch=1)
-     
-       
-        # Ahora añadimos el estado justo debajo de la lista y botón
+
+        # Estado factura
         status_layout = QtWidgets.QHBoxLayout()
         status_label = QtWidgets.QLabel("Invoice Status:")
         self.status_combo = QtWidgets.QComboBox()
@@ -329,32 +356,64 @@ class MainWindow(QtWidgets.QWidget):
         status_layout.addWidget(self.status_combo)
         right_panel.addLayout(status_layout)
 
+        self.delete_pdf_btn = QtWidgets.QPushButton("Delete Selected PDF")
+        self.delete_pdf_btn.setEnabled(False)
         right_panel.addWidget(self.delete_pdf_btn)
 
-        content_layout.addLayout(right_panel, stretch=3)
-        main_layout.addLayout(content_layout)
+        content_layout.addLayout(right_panel, stretch=1)
 
+        # Agregar a layout principal
+        main_layout.addLayout(content_layout)
 
         # Conexiones
         self.create_btn.clicked.connect(self.open_create_dialog)
         self.table.itemSelectionChanged.connect(self.show_invoice_pdfs)
         self.delete_invoice_btn.clicked.connect(self.delete_selected_invoice)
+        self.delete_invoice_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #d32f2f;  /* rojo */
+                color: white;
+                border-radius: 6px;
+                padding: 8px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #e53935;  /* rojo más claro al pasar el mouse */
+            }
+            QPushButton:pressed {
+                background-color: #7b0000;  /* rojo más oscuro al presionar */
+            }
+        """)
+
         self.table.itemSelectionChanged.connect(self.update_delete_invoice_button_state)
         self.table.itemDoubleClicked.connect(self.toggle_invoice_status)
         self.pdf_list.itemDoubleClicked.connect(self.open_pdf_file)
         self.pdf_list.itemSelectionChanged.connect(self.update_delete_button_state)
+        self.pdf_list.itemSelectionChanged.connect(self.update_pdf_nav_buttons) 
         self.delete_pdf_btn.clicked.connect(self.delete_selected_pdf)
+        self.delete_pdf_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #d32f2f;  /* rojo */
+                color: white;
+                border-radius: 6px;
+                padding: 8px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #e53935;  /* rojo más claro al pasar el mouse */
+            }
+            QPushButton:pressed {
+                background-color: #7b0000;  /* rojo más oscuro al presionar */
+            }
+        """)
         self.status_combo.currentIndexChanged.connect(self.change_status)
         self.search_btn.clicked.connect(self.search_invoices)
         self.search_input.returnPressed.connect(self.search_invoices)
         self.btn_open_folder.clicked.connect(self.open_add_pdfs_dialog)
 
-        self.load_invoices()
-
-
-
         # Carga inicial
         self.load_invoices()
+
 
     def load_invoices(self, invoices=None):
         self.table.setRowCount(0)
@@ -588,6 +647,22 @@ class MainWindow(QtWidgets.QWidget):
                 self.pdf_viewer.setHtml("<h3 style='color:white;text-align:center'>⚠️ No se encontró PDF.js</h3>")
         else:
             self.pdf_viewer.setHtml("<h3 style='color:white;text-align:center'>📄 Archivo PDF no encontrado</h3>")
+
+    def update_pdf_nav_buttons(self):
+        total = self.pdf_list.count()
+        current_row = self.pdf_list.currentRow()
+        self.prev_pdf_btn.setEnabled(total > 1 and current_row > 0)
+        self.next_pdf_btn.setEnabled(total > 1 and current_row < total - 1)
+
+    def show_previous_pdf(self):
+        current_row = self.pdf_list.currentRow()
+        if current_row > 0:
+         self.pdf_list.setCurrentRow(current_row - 1)
+
+    def show_next_pdf(self):
+        current_row = self.pdf_list.currentRow()
+        if current_row < self.pdf_list.count() - 1:
+         self.pdf_list.setCurrentRow(current_row + 1)
 
 
 if __name__ == "__main__":
