@@ -300,29 +300,37 @@ class MainWindow(QtWidgets.QWidget):
 
         
 
-     
-        # -------- Controles de navegación PDF --------
+            
+                
+                # Crear un contenedor para los botones de navegación PDF
+        btn_container = QtWidgets.QWidget()
+        btn_container.setFixedHeight(50)
+        btn_layout = QtWidgets.QHBoxLayout(btn_container)
+        btn_layout.setContentsMargins(0, 10, 0, 0)  # solo margen superior
+        btn_layout.setSpacing(5)  # 5px de espacio entre botones
+
         self.prev_pdf_btn = QtWidgets.QPushButton()
         self.prev_pdf_btn.setIcon(QIcon("icons/prev.png"))
         self.prev_pdf_btn.setIconSize(QtCore.QSize(32, 32))
         self.prev_pdf_btn.setFlat(True)
+        self.prev_pdf_btn.setFixedSize(32, 32)
         self.prev_pdf_btn.setStyleSheet("background: none; border: none; padding: 0; margin: 0;")
 
         self.next_pdf_btn = QtWidgets.QPushButton()
         self.next_pdf_btn.setIcon(QIcon("icons/next.png"))
         self.next_pdf_btn.setIconSize(QtCore.QSize(32, 32))
         self.next_pdf_btn.setFlat(True)
+        self.next_pdf_btn.setFixedSize(32, 32)
         self.next_pdf_btn.setStyleSheet("background: none; border: none; padding: 0; margin: 0;")
 
-        nav_layout = QtWidgets.QHBoxLayout()
-        nav_layout.setContentsMargins(0, 0, 0, 0)  # sin márgenes alrededor del layout
-        nav_layout.setSpacing(0)  # sin espacio entre los botones
-        nav_layout.addWidget(self.prev_pdf_btn)
-        nav_layout.addWidget(self.next_pdf_btn)
+        # Centrar los botones con un poco de separación entre ellos
+        btn_layout.addStretch()  # empuja hacia el centro desde la izquierda
+        btn_layout.addWidget(self.prev_pdf_btn)
+        btn_layout.addWidget(self.next_pdf_btn)
+        btn_layout.addStretch()  # empuja hacia el centro desde la derecha
 
-        # Agregamos el layout de navegación al final del center_panel
-        center_panel.addLayout(nav_layout)
-
+        # Agregamos el contenedor al final del center_panel
+        center_panel.addWidget(btn_container)
 
 
         # Conectar señales
