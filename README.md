@@ -1,7 +1,7 @@
 # 🧾 Digital Invoice Manager
 
 <p align="center">
-  <img src="icons/logo.png" alt="Futura Petroleum Manager Logo" width="400">
+  <img src="icons/Captura de pantalla 2025-08-16 153257.png" alt="Futura Petroleum Manager Logo" width="400">
 </p>
 
 <p align="center">
