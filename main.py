@@ -6,7 +6,7 @@ from PyQt6 import QtWidgets, QtCore, QtGui
 from PyQt6 import QtWebEngineWidgets
 from PyQt6.QtCore import QUrl, QUrlQuery
 from PyQt6.QtGui import QIcon
-from db import init_db, add_invoice, get_invoices, update_invoice_status
+from db import init_db, add_invoice, get_invoices, update_invoice_status, update_invoice_name
 
 # Función para obtener la ruta correcta de recursos (para PyInstaller)
 def resource_path(relative_path):
@@ -79,14 +79,24 @@ futuristic_style_main = """
 
 futuristic_style_droparea = """
     DropArea {
-        border: 2px dashed #58a6ff;
-        border-radius: 8px;
-        background-color: rgba(56,139,253,0.05);
+        border: 3px dashed #74b9ff;
+        border-radius: 12px;
+        background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                  stop: 0 rgba(116, 185, 255, 0.08), 
+                                  stop: 1 rgba(116, 185, 255, 0.15));
+        margin: 10px;
+    }
+    DropArea:hover {
+        border: 3px dashed #0984e3;
+        background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                  stop: 0 rgba(9, 132, 227, 0.12), 
+                                  stop: 1 rgba(9, 132, 227, 0.20));
     }
     QLabel {
-        color: #58a6ff;
-        font-size: 14px;
-        font-weight: bold;
+        color: #74b9ff;
+        font-size: 16px;
+        font-weight: 600;
+        padding: 20px;
     }
 """
 
@@ -154,43 +164,76 @@ class InvoiceCreateDialog(QtWidgets.QDialog):
     def __init__(self, current_year="2025"):
         super().__init__()
         self.current_year = current_year
-        self.setWindowTitle("Create Invoice")
-        self.setMinimumSize(400, 250)
+        self.setWindowTitle("Create New Invoice")
+        self.setMinimumSize(400, 500)
         self.setStyleSheet(futuristic_style_dialog)
-
-        layout = QtWidgets.QVBoxLayout(self)
-
-        form_layout = QtWidgets.QFormLayout()
-        form_layout.setVerticalSpacing(15)
-        form_layout.setContentsMargins(10, 10, 10, 10)
         
+        layout = QtWidgets.QVBoxLayout(self)
+        
+        # Invoice Number
+        layout.addWidget(QtWidgets.QLabel("Invoice Number:"))
         self.number_input = QtWidgets.QLineEdit()
-        self.number_input.setPlaceholderText("e.g. INV-2023-001")
+        layout.addWidget(self.number_input)
+        
+        # Name
+        layout.addWidget(QtWidgets.QLabel("Name:"))
+        self.name_input = QtWidgets.QLineEdit()
+        layout.addWidget(self.name_input)
+        
+        # Date
+        layout.addWidget(QtWidgets.QLabel("Date:"))
         self.date_input = QtWidgets.QDateEdit(QtCore.QDate.currentDate())
         self.date_input.setCalendarPopup(True)
-        self.date_input.setDisplayFormat("yyyy-MM-dd")
+        self.date_input.setDisplayFormat("dd/MM/yyyy")
+        layout.addWidget(self.date_input)
         
-        form_layout.addRow("Invoice Number:", self.number_input)
-        form_layout.addRow("Date:", self.date_input)
-        layout.addLayout(form_layout)
-
+        # Drop area
         self.drop_area = DropArea()
         layout.addWidget(self.drop_area)
-
+        
+        # Botón para seleccionar archivos PDF
+        self.select_files_btn = QtWidgets.QPushButton("Select PDF Files")
+        layout.addWidget(self.select_files_btn)
+        
+        # Buttons
+        buttons_layout = QtWidgets.QHBoxLayout()
         self.save_button = QtWidgets.QPushButton("Save Invoice")
-        self.save_button.setFixedHeight(40)
-        layout.addWidget(self.save_button)
-
+        buttons_layout.addWidget(self.save_button)
+        layout.addLayout(buttons_layout)
+        
+        # Connections
         self.files_to_copy = []
         self.drop_area.filesDropped.connect(self.files_dropped)
+        self.select_files_btn.clicked.connect(self.select_files)
         self.save_button.clicked.connect(self.save_invoice)
 
     def files_dropped(self, files):
         self.files_to_copy.extend(files)
-        self.drop_area.label.setText(f"{len(self.files_to_copy)} PDF(s) ready to add")
+        self.update_files_display()
+
+    def select_files(self):
+        """Abre un diálogo para seleccionar archivos PDF"""
+        files, _ = QtWidgets.QFileDialog.getOpenFileNames(
+            self,
+            "Select PDF Files",
+            "",
+            "PDF Files (*.pdf)"
+        )
+        if files:
+            self.files_to_copy.extend(files)
+            self.update_files_display()
+    
+    def update_files_display(self):
+        """Actualiza el texto del área de drop con el número de archivos seleccionados"""
+        count = len(self.files_to_copy)
+        if count == 0:
+            self.drop_area.label.setText("Drag and drop PDF files here")
+        else:
+            self.drop_area.label.setText(f"{count} PDF(s) ready to add")
 
     def save_invoice(self):
         number = self.number_input.text().strip()
+        name = self.name_input.text().strip()
         date = self.date_input.date().toString("yyyy-MM-dd")
 
         if not number:
@@ -210,7 +253,7 @@ class InvoiceCreateDialog(QtWidgets.QDialog):
         if not os.path.exists(invoice_folder):
             os.makedirs(invoice_folder)
 
-        add_invoice(number, date, invoice_folder, "rojo")
+        add_invoice(number, name, date, invoice_folder, "incompleto")
 
         for file_path in self.files_to_copy:
             filename = os.path.basename(file_path)
@@ -230,7 +273,7 @@ class MainWindow(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowIcon(QtGui.QIcon(resource_path("icons/app_icon.png")))
-        self.setWindowTitle("Futura Petrolium Manager")
+        self.setWindowTitle("Futura Manager")
         self.setGeometry(400, 200, 1800, 1400)
         self.setStyleSheet(futuristic_style_main)
 
@@ -247,7 +290,9 @@ class MainWindow(QtWidgets.QWidget):
         content_layout.setSpacing(20)
 
         # -------- LEFT PANEL --------
-        left_panel = QtWidgets.QVBoxLayout()
+        left_panel_widget = QtWidgets.QWidget()
+        left_panel_widget.setFixedWidth(370)  # Ancho fijo de 370px
+        left_panel = QtWidgets.QVBoxLayout(left_panel_widget)
         left_panel.setSpacing(10)
 
         # Logo
@@ -285,7 +330,7 @@ class MainWindow(QtWidgets.QWidget):
         # Buscador
         search_layout = QtWidgets.QHBoxLayout()
         self.search_input = QtWidgets.QLineEdit()
-        self.search_input.setPlaceholderText("Invoice Number:")
+        self.search_input.setPlaceholderText("Search by Number or Name:")
         self.search_btn = QtWidgets.QPushButton("Search")
         self.search_btn.setFixedWidth(100)
         search_layout.addWidget(self.search_input)
@@ -298,22 +343,30 @@ class MainWindow(QtWidgets.QWidget):
 
         # Tabla
         self.table = QtWidgets.QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Number", "Date", "Folder", "Status"])
+        self.table.setColumnCount(5)
+        self.table.setHorizontalHeaderLabels(["Number", "Name", "Date", "Folder", "Status"])
         self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.verticalHeader().setVisible(False)
-        self.table.setColumnHidden(2, True)
+        self.table.horizontalHeader().setVisible(False)  # Ocultar encabezados de columnas
+        self.table.setColumnHidden(3, True)  # Ocultar Folder (ahora es columna 3)
         header_table = self.table.horizontalHeader()
-        header_table.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Stretch)
-        header_table.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)
-        header_table.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.Stretch)
+        header_table.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Interactive)  # Number
+        header_table.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Interactive)  # Name
+        header_table.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.Interactive)  # Date
+        header_table.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeMode.Fixed)      # Status - fijo
+        
+        # Configurar anchos específicos
+        self.table.setColumnWidth(0, 60)  # Number - ancho moderado
+        self.table.setColumnWidth(1, 150)  # Name - más ancho para "MY SERENANA"
+        self.table.setColumnWidth(2, 90)  # Date - ancho moderado
+        self.table.setColumnWidth(4, 30)   # Status - muy estrecho solo para icono
         left_panel.addWidget(self.table)
         
 
         # Botones debajo de la tabla
         buttons_layout = QtWidgets.QHBoxLayout()
-        self.delete_invoice_btn = QtWidgets.QPushButton("Delete Invoice")
+        self.delete_invoice_btn = QtWidgets.QPushButton("Delete Folder")
         self.delete_invoice_btn.setEnabled(False)
         self.delete_invoice_btn.setMinimumWidth(120)
         self.btn_open_folder = QtWidgets.QPushButton("Open Folder")
@@ -322,11 +375,11 @@ class MainWindow(QtWidgets.QWidget):
         buttons_layout.addWidget(self.btn_open_folder)
         left_panel.addLayout(buttons_layout)
 
-        self.create_btn = QtWidgets.QPushButton("Create New Invoice")
+        self.create_btn = QtWidgets.QPushButton("Create Folder")
         self.create_btn.setMinimumHeight(40)
         left_panel.addWidget(self.create_btn)
 
-        content_layout.addLayout(left_panel, stretch=1)
+        content_layout.addWidget(left_panel_widget)
 
         # -------- CENTER PANEL (visor PDF) --------
         center_panel = QtWidgets.QVBoxLayout()
@@ -370,7 +423,7 @@ class MainWindow(QtWidgets.QWidget):
         self.prev_pdf_btn.clicked.connect(self.show_previous_pdf)
         self.next_pdf_btn.clicked.connect(self.show_next_pdf)
 
-        content_layout.addLayout(center_panel, stretch=3)
+        content_layout.addLayout(center_panel, stretch=2)
 
         # -------- RIGHT PANEL --------
         right_panel = QtWidgets.QVBoxLayout()
@@ -385,7 +438,12 @@ class MainWindow(QtWidgets.QWidget):
         self.pdf_list.currentItemChanged.connect(self.show_pdf_in_viewer)
         right_panel.addWidget(self.pdf_list, stretch=1)
 
-        self.delete_pdf_btn = QtWidgets.QPushButton("Delete Selected PDF")
+        # Botón para añadir PDFs a la factura seleccionada
+        self.add_pdf_btn = QtWidgets.QPushButton("Add PDF")
+        self.add_pdf_btn.setEnabled(False)
+        right_panel.addWidget(self.add_pdf_btn)
+        
+        self.delete_pdf_btn = QtWidgets.QPushButton("Delete PDF")
         self.delete_pdf_btn.setEnabled(False)
         right_panel.addWidget(self.delete_pdf_btn)
 
@@ -415,10 +473,12 @@ class MainWindow(QtWidgets.QWidget):
         """)
 
         self.table.itemSelectionChanged.connect(self.update_delete_invoice_button_state)
+        self.table.itemSelectionChanged.connect(self.update_add_pdf_button_state)
         self.table.itemDoubleClicked.connect(self.toggle_invoice_status)
         self.pdf_list.itemDoubleClicked.connect(self.open_pdf_file)
         self.pdf_list.itemSelectionChanged.connect(self.update_delete_button_state)
         self.pdf_list.itemSelectionChanged.connect(self.update_pdf_nav_buttons) 
+        self.add_pdf_btn.clicked.connect(self.add_pdf_to_invoice)
         self.delete_pdf_btn.clicked.connect(self.delete_selected_pdf)
         self.delete_pdf_btn.setStyleSheet("""
             QPushButton {
@@ -445,6 +505,27 @@ class MainWindow(QtWidgets.QWidget):
         # Carga inicial - cargar facturas por año (por defecto 2025)
         self.load_invoices_by_year()
 
+    def format_date_european(self, date_str):
+        """Convierte fecha de formato YYYY-MM-DD a DD/MM/YYYY"""
+        if not date_str or len(date_str) < 10:
+            return date_str
+        try:
+            # Si la fecha está en formato YYYY-MM-DD
+            if '-' in date_str and len(date_str) == 10:
+                parts = date_str.split('-')
+                if len(parts) == 3:
+                    year, month, day = parts
+                    return f"{day}/{month}/{year}"
+            # Si ya está en formato DD/MM/YYYY, devolver tal como está
+            elif '/' in date_str:
+                return date_str
+            # Si es solo el año
+            elif len(date_str) == 4 and date_str.isdigit():
+                return date_str
+        except:
+            pass
+        return date_str
+
 
     def load_invoices(self, invoices=None):
         self.table.setRowCount(0)
@@ -461,12 +542,17 @@ class MainWindow(QtWidgets.QWidget):
         for row_data in invoices:
             row = self.table.rowCount()
             self.table.insertRow(row)
-            number, date, folder, status = row_data[1], row_data[2], row_data[3], row_data[4]
+            # La estructura real es: id, number, date, folder, status, name
+            if len(row_data) >= 6:  # Nuevo formato con name
+                number, date, folder, status, name = row_data[1], row_data[2], row_data[3], row_data[4], row_data[5]
+            else:  # Formato antiguo sin name
+                number, date, folder, status, name = row_data[1], row_data[2], row_data[3], row_data[4], ""
 
             self.table.setItem(row, 0, QtWidgets.QTableWidgetItem(number))
-            self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(date))
+            self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(name if name else ""))
+            self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(self.format_date_european(date)))
             folder_item = QtWidgets.QTableWidgetItem(folder)
-            self.table.setItem(row, 2, folder_item)
+            self.table.setItem(row, 3, folder_item)
 
             status_item = QtWidgets.QTableWidgetItem()
             if status == "completo":
@@ -475,7 +561,7 @@ class MainWindow(QtWidgets.QWidget):
             else:
                 status_item.setIcon(self.red_cross_icon)
                 status_item.setToolTip("Incomplete - Double click to change to complete")
-            self.table.setItem(row, 3, status_item)
+            self.table.setItem(row, 4, status_item)
 
         if self.table.rowCount() > 0:
             self.table.selectRow(0)
@@ -510,21 +596,25 @@ class MainWindow(QtWidgets.QWidget):
         if not selected:
             return
         
-        folder = self.table.item(selected[0].row(), 2).text()
+        folder = self.table.item(selected[0].row(), 3).text()  # Folder ahora está en columna 3
 
         if not os.path.exists(folder):
             return
 
         files = [f for f in os.listdir(folder) if f.lower().endswith('.pdf')]
         self.pdf_list.addItems(files)
+        
+        # Seleccionar automáticamente el primer PDF si hay archivos
+        if files:
+            self.pdf_list.setCurrentRow(0)
 
     def toggle_invoice_status(self, item):
-        # Solo permitir cambio si se hace clic en la columna de estado (columna 3)
-        if item.column() != 3:
+        # Solo permitir cambio si se hace clic en la columna de estado (columna 4)
+        if item.column() != 4:
             return
             
         row = item.row()
-        current_status = self.table.item(row, 3).icon()
+        current_status = self.table.item(row, 4).icon()
         current_status_text = "completo" if current_status.cacheKey() == self.green_check_icon.cacheKey() else "incompleto"
         new_status = "incompleto" if current_status_text == "completo" else "completo"
         number = self.table.item(row, 0).text()
@@ -544,7 +634,7 @@ class MainWindow(QtWidgets.QWidget):
         selected_invoice = self.table.selectedItems()
         if not selected_invoice:
             return
-        folder = self.table.item(selected_invoice[0].row(), 2).text()
+        folder = self.table.item(selected_invoice[0].row(), 3).text()  # Folder está en columna 3
         path = os.path.join(folder, item.text())
         if os.path.exists(path):
             QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(path))
@@ -558,7 +648,7 @@ class MainWindow(QtWidgets.QWidget):
         if not selected_invoice or not selected_pdf:
             return
         
-        folder = self.table.item(selected_invoice[0].row(), 2).text()
+        folder = self.table.item(selected_invoice[0].row(), 3).text()
         path = os.path.join(folder, selected_pdf.text())
 
         reply = QtWidgets.QMessageBox.question(self, "Delete PDF", f"Are you sure you want to delete '{selected_pdf.text()}'?",
@@ -574,7 +664,7 @@ class MainWindow(QtWidgets.QWidget):
     def search_invoices(self):
         text = self.search_input.text().strip().lower()
         if not text:
-            self.load_invoices()  # Cargar tabla original cuando no hay búsqueda
+            self.load_invoices_by_year()  # Cargar vista por año cuando no hay búsqueda
             return
         
         # Buscar en todas las facturas de la base de datos
@@ -582,9 +672,14 @@ class MainWindow(QtWidgets.QWidget):
         filtered_invoices = []
         
         for invoice in invoices:
+            # La estructura real es: id, number, date, folder, status, name
             number, date, folder, status = invoice[1], invoice[2], invoice[3], invoice[4]
-            # Buscar en número de factura o fecha
-            if text in number.lower() or text in date.lower():
+            name = invoice[5] if len(invoice) >= 6 else ""  # Manejar facturas sin campo name
+            
+            # Buscar en número de factura, fecha o nombre
+            if (text in number.lower() or 
+                text in date.lower() or 
+                (name and text in name.lower())):
                 filtered_invoices.append(invoice)
         
         # Mostrar resultados filtrados
@@ -602,7 +697,7 @@ class MainWindow(QtWidgets.QWidget):
     
         row = selected[0].row()
         number = self.table.item(row, 0).text()
-        folder = self.table.item(row, 2).text()
+        folder = self.table.item(row, 3).text()
         
         reply = QtWidgets.QMessageBox.question(
             self, "Delete Invoice",
@@ -632,7 +727,7 @@ class MainWindow(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "No Invoice Selected", "Please select an invoice in the table first.")
             return
         row = selected_rows[0].row()
-        invoice_folder_name = self.table.model().index(row, 2).data()
+        invoice_folder_name = self.table.model().index(row, 3).data()
         if not invoice_folder_name:
             QtWidgets.QMessageBox.warning(self, "Error", "Selected row has no folder information.")
             return
@@ -660,7 +755,7 @@ class MainWindow(QtWidgets.QWidget):
             self.pdf_viewer.setHtml("")
             return
 
-        folder = self.table.item(selected_invoice[0].row(), 2).text()
+        folder = self.table.item(selected_invoice[0].row(), 3).text()
         pdf_file = current.text()
         path = os.path.join(folder, pdf_file)
         abs_path = os.path.abspath(path)
@@ -721,20 +816,28 @@ class MainWindow(QtWidgets.QWidget):
             for invoice_folder_name in os.listdir(year_folder):
                 invoice_path = os.path.join(year_folder, invoice_folder_name)
                 if os.path.isdir(invoice_path):
-                    # Buscar información en la base de datos para obtener fecha y estado reales
+                    # Buscar información en la base de datos para obtener fecha, nombre y estado reales
                     all_invoices = get_invoices()
+                    invoice_name = ""  # Por defecto vacío
                     invoice_date = selected_year  # Por defecto usar el año
                     invoice_status = "completo"  # Por defecto completo para facturas externas
                     
                     # Buscar en la BD si existe información adicional
                     for db_invoice in all_invoices:
                         if db_invoice[1] == invoice_folder_name:  # Coincidir por número de factura
-                            invoice_date = db_invoice[2]
-                            invoice_status = db_invoice[4]
+                            # La estructura real es: id, number, date, folder, status, name
+                            if len(db_invoice) >= 6:  # Nuevo formato con name
+                                invoice_date = db_invoice[2]  # date está en índice 2
+                                invoice_status = db_invoice[4]  # status está en índice 4
+                                invoice_name = db_invoice[5] if db_invoice[5] else ""  # name está en índice 5
+                            else:  # Formato antiguo sin name
+                                invoice_date = db_invoice[2]
+                                invoice_status = db_invoice[4]
                             break
                     
                     invoice_data = {
                         'number': invoice_folder_name,
+                        'name': invoice_name,
                         'date': invoice_date,
                         'folder': invoice_path,
                         'status': invoice_status
@@ -761,8 +864,9 @@ class MainWindow(QtWidgets.QWidget):
             self.table.insertRow(row)
             
             self.table.setItem(row, 0, QtWidgets.QTableWidgetItem(invoice_data['number']))
-            self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(invoice_data['date']))
-            self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(invoice_data['folder']))
+            self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(invoice_data['name']))  # Usar el nombre de la BD
+            self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(self.format_date_european(invoice_data['date'])))
+            self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(invoice_data['folder']))
             
             # Icono de estado
             status_item = QtWidgets.QTableWidgetItem()
@@ -772,7 +876,7 @@ class MainWindow(QtWidgets.QWidget):
             else:
                 status_item.setIcon(self.red_cross_icon)
                 status_item.setToolTip("Incomplete - Double click to change to complete")
-            self.table.setItem(row, 3, status_item)
+            self.table.setItem(row, 4, status_item)
         
         # Seleccionar la primera fila si hay datos
         if self.table.rowCount() > 0:
@@ -781,6 +885,75 @@ class MainWindow(QtWidgets.QWidget):
     def get_selected_year_folder(self):
         """Retorna la carpeta del año actualmente seleccionado"""
         return os.path.join("data", self.year_combo.currentText())
+
+    def update_add_pdf_button_state(self):
+        """Activa o desactiva el botón Add PDF to Invoice según si hay una factura seleccionada"""
+        selected = self.table.selectedItems()
+        self.add_pdf_btn.setEnabled(bool(selected))
+    
+    def add_pdf_to_invoice(self):
+        """Permite al usuario seleccionar PDFs para añadir a la factura seleccionada"""
+        selected_invoice = self.table.selectedItems()
+        if not selected_invoice:
+            QtWidgets.QMessageBox.warning(self, "No Invoice Selected", "Please select an invoice first.")
+            return
+        
+        # Obtener la carpeta de la factura seleccionada
+        folder = self.table.item(selected_invoice[0].row(), 3).text()
+        invoice_number = self.table.item(selected_invoice[0].row(), 0).text()
+        
+        if not os.path.exists(folder):
+            QtWidgets.QMessageBox.warning(self, "Error", f"Invoice folder not found:\n{folder}")
+            return
+        
+        # Abrir diálogo de selección de archivos PDF
+        files, _ = QtWidgets.QFileDialog.getOpenFileNames(
+            self,
+            f"Select PDF Files for Invoice {invoice_number}",
+            "",
+            "PDF Files (*.pdf)"
+        )
+        
+        if not files:
+            return
+        
+        # Copiar archivos seleccionados a la carpeta de la factura
+        copied_count = 0
+        skipped_files = []
+        
+        for file_path in files:
+            filename = os.path.basename(file_path)
+            dest_path = os.path.join(folder, filename)
+            
+            # Verificar si el archivo ya existe
+            if os.path.exists(dest_path):
+                reply = QtWidgets.QMessageBox.question(
+                    self, "File Exists", 
+                    f"The file '{filename}' already exists in the invoice folder.\n\nDo you want to overwrite it?",
+                    QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No | QtWidgets.QMessageBox.StandardButton.Cancel
+                )
+                
+                if reply == QtWidgets.QMessageBox.StandardButton.Cancel:
+                    break
+                elif reply == QtWidgets.QMessageBox.StandardButton.No:
+                    skipped_files.append(filename)
+                    continue
+            
+            # Copiar el archivo
+            try:
+                shutil.copy(file_path, dest_path)
+                copied_count += 1
+            except Exception as e:
+                QtWidgets.QMessageBox.warning(self, "Error Copying File", f"Could not copy '{filename}':\n{str(e)}")
+        
+        # Actualizar la lista de PDFs y mostrar mensaje de resultado
+        self.show_invoice_pdfs()
+        
+        message = f"Successfully added {copied_count} PDF(s) to invoice '{invoice_number}'."
+        if skipped_files:
+            message += f"\n\nSkipped files: {', '.join(skipped_files)}"
+        
+        QtWidgets.QMessageBox.information(self, "PDFs Added", message)
 
 
 if __name__ == "__main__":
